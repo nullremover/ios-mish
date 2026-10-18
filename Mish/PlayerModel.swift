@@ -218,6 +218,13 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     meta.album = await Self.string(items, .commonIdentifierAlbumName)
                     meta.artwork = await Self.artwork(items)
                 }
+                if meta.artwork == nil {
+                    meta.artwork = ArtworkMetadataReader.embeddedArtwork(for: track.url)
+                }
+                
+                if meta.artwork == nil {
+                    meta.artwork = ArtworkMetadataReader.folderArtwork(for: track.url)
+                }
                 batch.append(meta)
                 if batch.count >= 25 {
                     let toApply = batch
