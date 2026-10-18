@@ -88,7 +88,7 @@ struct ContentView: View {
             Button {
                 chaos.toggle()
             } label: {
-                Text(chaos ? "CHAOS" : "CALM")
+                Text(chaos ? "Portal" : "CALM")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(chaos ? .purple : .cyan)
                     .frame(width: 64, height: 44)
