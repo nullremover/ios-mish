@@ -81,7 +81,7 @@ struct ContentView: View {
             Spacer()
             HStack(spacing: 0) {
                 Text("mish")
-                    .font(.custom("DelaGothicOne-Regular", size: 20))
+                    .font(.custom("delagothicone-regular", size: 20))
                     .foregroundStyle(.white)
             }
             Spacer()
