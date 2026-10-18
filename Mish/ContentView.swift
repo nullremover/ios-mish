@@ -1,4 +1,4 @@
-mport SwiftUI
+import SwiftUI
 import UniformTypeIdentifiers
 
 // MARK: - Colors from the CSS
