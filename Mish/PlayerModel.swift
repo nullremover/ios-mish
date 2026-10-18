@@ -202,6 +202,39 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         UserDefaults.standard.set(bookmarkDatas, forKey: bookmarksKey)
         scan()
     }
+    
+    /// Excludes a track from the queue without removing it from the library.
+    func removeFromQueue(_ track: Track) {
+        queueExcludedURLs.insert(trackKey(track.url))
+        objectWillChange.send()
+    }
+
+    /// Removes a track from Mish's library, but never deletes its audio file.
+    func removeFromLibrary(_ track: Track) {
+        var removed = removedLibraryURLs
+        removed.insert(trackKey(track.url))
+        removedLibraryURLs = removed
+
+        if currentTrack?.url == track.url {
+            player?.stop()
+            player = nil
+            timer?.invalidate()
+            timer = nil
+
+            isPlaying = false
+            currentTime = 0
+            currentIndex = nil
+            spectrum = Array(
+                repeating: 0,
+                count: MishSpectrumAnalyzer.bandCount
+            )
+
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        }
+
+        scan()
+    }
+
 
     private func restoreLibrary() {
         // The app's own Documents folder (shows up in Files > On My iPhone > mish)
@@ -237,10 +270,21 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
 
         let currentURL = currentTrack?.url
+
         tracks = Array(Set(found))
+            .filter { !removedLibraryURLs.contains(trackKey($0)) }
             .sorted { $0.path.lowercased() < $1.path.lowercased() }
-            .map { Track(url: $0, title: $0.deletingPathExtension().lastPathComponent) }
-        currentIndex = currentURL.flatMap { u in tracks.firstIndex { $0.url == u } }
+            .map {
+                Track(
+                    url: $0,
+                    title: $0.deletingPathExtension().lastPathComponent
+                )
+            }
+        
+        currentIndex = currentURL.flatMap { url in
+            tracks.firstIndex { $0.url == url }
+        }
+        
         rebuildOrder()
         loadMetadata()
     }
@@ -283,14 +327,6 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     meta.artwork = ArtworkMetadataReader.embeddedArtwork(for: track.url)
                 }
     
-                if meta.artwork == nil {
-                    meta.artwork = ArtworkMetadataReader.folderArtwork(for: track.url)
-                }
-
-                if meta.artwork == nil {
-                    meta.artwork = ArtworkMetadataReader.embeddedArtwork(for: track.url)
-                }
-                
                 if meta.artwork == nil {
                     meta.artwork = ArtworkMetadataReader.folderArtwork(for: track.url)
                 }
@@ -355,6 +391,7 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     // MARK: - Playback
     func play(index: Int) {
         guard tracks.indices.contains(index) else { return }
+        queueExcludedURLs.remove(trackKey(tracks[index].url))
         do {
             let p = try AVAudioPlayer(contentsOf: tracks[index].url)
             p.delegate = self
@@ -392,24 +429,74 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         updateNowPlaying()
     }
 
+    
     func next() {
-        guard !order.isEmpty else { return }
-        var pos = orderPos + 1
-        if pos >= order.count {
-            guard repeatMode == .all else { stopAtEnd(); return }
-            pos = 0
+        guard !order.isEmpty else {
+            stopAtEnd()
+            return
         }
-        orderPos = pos
-        play(index: order[pos])
+
+        var pos = orderPos
+
+        for _ in 0..<order.count {
+            pos += 1
+
+            if pos >= order.count {
+                guard repeatMode == .all else {
+                    stopAtEnd()
+                    return
+                }
+                pos = 0
+            }
+
+            let index = order[pos]
+            guard tracks.indices.contains(index) else { continue }
+
+            let track = tracks[index]
+            if !queueExcludedURLs.contains(trackKey(track.url)) {
+                orderPos = pos
+                play(index: index)
+                return
+            }
+        }
+
+        stopAtEnd()
     }
 
     func previous() {
-        if (player?.currentTime ?? 0) > 3 { seek(to: 0); return } // like most players: restart first
+        if (player?.currentTime ?? 0) > 3 {
+            seek(to: 0)
+            return
+        }
+
         guard !order.isEmpty else { return }
-        var pos = orderPos - 1
-        if pos < 0 { pos = repeatMode == .all ? order.count - 1 : 0 }
-        orderPos = pos
-        play(index: order[pos])
+
+        var pos = orderPos
+
+        for _ in 0..<order.count {
+            pos -= 1
+
+            if pos < 0 {
+                if repeatMode == .all {
+                    pos = order.count - 1
+                } else {
+                    pos = 0
+                }
+            }
+
+            let index = order[pos]
+            guard tracks.indices.contains(index) else { continue }
+
+            let track = tracks[index]
+            if !queueExcludedURLs.contains(trackKey(track.url)) {
+                orderPos = pos
+                play(index: index)
+                return
+            }
+
+            // At the beginning without repeat, there is nowhere else to go.
+            if pos == 0 && repeatMode != .all { break }
+        }
     }
 
     func seek(to time: TimeInterval) {
