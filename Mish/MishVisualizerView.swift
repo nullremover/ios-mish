@@ -441,4 +441,4 @@ struct MishVisualizerView: View {
         guard !spectrum.isEmpty else { return 0 }
         return spectrum[index % spectrum.count]
     }
-}
+} 
