@@ -34,7 +34,7 @@ targets:
           - audio
         # makes an "mish" folder appear in the Files app under "On My iPhone": drop music in there
         UIAppFonts:
-          - Fonts/delagothicone-regular.ttf
+          - delagothicone-regular.ttf
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
     settings:
