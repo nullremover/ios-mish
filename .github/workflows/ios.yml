@@ -42,7 +42,7 @@ jobs:
           cp -R build/Build/Products/Release-iphoneos/Mish.app Payload/
           zip -qry Mish.ipa Payload
 
-     - name: Find image in built app
+      - name: Find image in built app
         run: |
           find build/Build/Products/Release-iphoneos/Mish.app \
             -iname '*0451*' -print
