@@ -33,6 +33,8 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published private(set) var currentIndex: Int? = nil
     @Published private(set) var isPlaying = false
     @Published private(set) var currentTime: TimeInterval = 0
+    @Published private(set) var spectrum: [Float] =
+        Array(repeating: 0, count: MishSpectrumAnalyzer.bandCount)
     @Published var repeatMode: RepeatMode = .off
     @Published var shuffleOn = false {
         didSet { rebuildOrder() }
@@ -40,6 +42,7 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     // MARK: - Private state
     private var player: AVAudioPlayer?
+    private let audioSampler = MishAudioSampler()
     private var order: [Int] = []          // playback order: indices into `tracks` (shuffled or not)
     private var orderPos = 0               // where we are inside `order`
     private var timer: Timer?
@@ -358,12 +361,36 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     private func startTimer() {
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
-            guard let self = self, let p = self.player else { return }
-            self.currentTime = p.currentTime
+    timer?.invalidate()
+
+    timer = Timer.scheduledTimer(
+        withTimeInterval: 0.1,
+        repeats: true
+    ) { [weak self] _ in
+        guard let self = self,
+              let player = self.player else { return }
+
+        self.currentTime = player.currentTime
+
+        guard self.isPlaying,
+              let track = self.currentTrack else { return }
+
+        let url = track.url
+        let time = player.currentTime
+
+        self.audioSampler.analyze(url: url, at: time) {
+            [weak self] newSpectrum in
+
+            guard let self = self,
+                  self.isPlaying,
+                  self.currentTrack?.url == url else {
+                return
+            }
+
+            self.spectrum = newSpectrum
         }
     }
+}
 
     // A track finished by itself
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
