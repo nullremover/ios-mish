@@ -218,6 +218,31 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     meta.album = await Self.string(items, .commonIdentifierAlbumName)
                     meta.artwork = await Self.artwork(items)
                 }
+                
+                if track.url.pathExtension.lowercased() == "flac" {
+                    let tags = ArtworkMetadataReader.flacComments(for: track.url)
+    
+                    if meta.title == nil {
+                        meta.title = tags["TITLE"]
+                    }
+    
+                    if meta.artist == nil {
+                        meta.artist = tags["ARTIST"] ?? tags["ALBUMARTIST"]
+                    }
+    
+                    if meta.album == nil {
+                        meta.album = tags["ALBUM"]
+                    }
+                }
+    
+                if meta.artwork == nil {
+                    meta.artwork = ArtworkMetadataReader.embeddedArtwork(for: track.url)
+                }
+    
+                if meta.artwork == nil {
+                    meta.artwork = ArtworkMetadataReader.folderArtwork(for: track.url)
+                }
+
                 if meta.artwork == nil {
                     meta.artwork = ArtworkMetadataReader.embeddedArtwork(for: track.url)
                 }
