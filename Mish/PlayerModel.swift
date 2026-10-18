@@ -52,6 +52,25 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var metadataTask: Task<Void, Never>?
 
     private let bookmarksKey = "mish.bookmarks"
+    private let removedLibraryKey = "mish.removedLibraryURLs"
+
+    private var removedLibraryURLs: Set<String> {
+        get {
+            Set(UserDefaults.standard.stringArray(forKey: removedLibraryKey) ?? [])
+        }
+        set {
+            UserDefaults.standard.set(
+                Array(newValue),
+                forKey: removedLibraryKey
+            )
+        }
+    }
+    
+    private var queueExcludedURLs = Set<String>()
+    
+    private func trackKey(_ url: URL) -> String {
+        url.standardizedFileURL.absoluteString
+    }
     // AVAudioPlayer plays these natively on iOS (no .ogg, iOS can't decode it)
     private static let audioExtensions: Set<String> = ["mp3", "m4a", "aac", "wav", "aif", "aiff", "caf", "flac"]
 
@@ -63,23 +82,48 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     var duration: TimeInterval { player?.duration ?? currentTrack?.duration ?? 0 }
 
-    /// The tracks in the order they will play.
-    var queue: [Track] { order.compactMap { tracks.indices.contains($0) ? tracks[$0] : nil } }
+    
+    /// Tracks still included in the playback queue.
+    var queue: [Track] {
+        order.compactMap { index in
+            guard tracks.indices.contains(index) else { return nil }
+            let track = tracks[index]
+            return queueExcludedURLs.contains(trackKey(track.url))
+                ? nil
+                : track
+        }
+    }
 
-    /// The next few tracks after the current one.
+    /// The next three eligible tracks.
     var upNext: [Track] {
         guard !order.isEmpty else { return [] }
+
         var result: [Track] = []
         var pos = currentIndex == nil ? -1 : orderPos
-        let wanted = min(3, order.count - (currentIndex == nil ? 0 : 1))
-        guard wanted > 0 else { return [] }
-        for _ in 0..<wanted {
+        var checked = 0
+
+        while checked < order.count && result.count < 3 {
             pos += 1
+
             if pos >= order.count {
-                if repeatMode == .all { pos = 0 } else { break }
+                guard repeatMode == .all else { break }
+                pos = 0
             }
-            if tracks.indices.contains(order[pos]) { result.append(tracks[order[pos]]) }
+
+            checked += 1
+            let index = order[pos]
+
+            guard tracks.indices.contains(index) else { continue }
+
+            // Don't list the current track again after wrapping around.
+            if currentIndex == index { continue }
+
+            let track = tracks[index]
+            if !queueExcludedURLs.contains(trackKey(track.url)) {
+                result.append(track)
+            }
         }
+
         return result
     }
 
