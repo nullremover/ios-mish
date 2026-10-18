@@ -195,17 +195,30 @@ struct NowPlayingView: View {
                         Image(uiImage: image).resizable().scaledToFill()
                     } else {
                         ZStack {
-                            LinearGradient(colors: [Color(hex: 0xef8e62), Color(hex: 0x7a436d), Color(hex: 0x242b55)],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing)
-                            Circle().stroke(Color.white.opacity(0.33), lineWidth: 1).padding(40)
-                            Text("MISH").font(.system(size: 27, weight: .black)).tracking(4)
+                            LinearGradient(
+                                colors: [
+                                    Color(hex: 0x38393D),
+                                    Color(hex: 0x242528),
+                                    Color(hex: 0x303135)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        
+                            Circle()
+                                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                                .padding(40)
+                        
+                            Text("mish")
+                                .font(.custom("delagothicone-regular", size: 42))
+                                .foregroundStyle(Color(hex: 0xD4D4D8))
                         }
-                    }
-                }
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
-            .shadow(color: Color.black.opacity(0.4), radius: 20, y: 18)
-    }
+                                            }
+                                        }
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
+                                    .shadow(color: Color.black.opacity(0.4), radius: 20, y: 18)
+                            }
 
     private var trackInfo: some View {
         HStack(alignment: .center, spacing: 8) {
