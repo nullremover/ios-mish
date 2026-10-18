@@ -16,6 +16,118 @@ enum ArtworkMetadataReader {
             return nil
         }
     }
+    
+    
+    // MARK: - FLAC Vorbis Comments
+
+    static func flacComments(for url: URL) -> [String: String] {
+        guard url.pathExtension.lowercased() == "flac",
+              let data = try? Data(contentsOf: url, options: .mappedIfSafe),
+              data.count >= 8,
+              data.prefix(4) == Data("fLaC".utf8) else {
+            return [:]
+        }
+
+        var offset = 4
+
+        while offset <= data.count - 4 {
+            let header = data[offset]
+            let isLast = (header & 0x80) != 0
+            let type = header & 0x7F
+
+            let length = (Int(data[offset + 1]) << 16)
+                | (Int(data[offset + 2]) << 8)
+                | Int(data[offset + 3])
+
+            offset += 4
+
+            guard length <= data.count - offset else {
+                return [:]
+            }
+
+            let end = offset + length
+
+            // FLAC metadata block type 4 = Vorbis Comment.
+            if type == 4 {
+                return parseVorbisComments(
+                    data: data,
+                    start: offset,
+                    end: end
+                )
+            }
+
+            offset = end
+            if isLast { break }
+        }
+
+        return [:]
+    }
+
+    private static func parseVorbisComments(
+        data: Data,
+        start: Int,
+        end: Int
+    ) -> [String: String] {
+        var cursor = start
+
+        func readLE32() -> UInt32? {
+            guard cursor >= start, cursor <= end - 4 else {
+                return nil
+            }
+
+            let value = UInt32(data[cursor])
+                | (UInt32(data[cursor + 1]) << 8)
+                | (UInt32(data[cursor + 2]) << 16)
+                | (UInt32(data[cursor + 3]) << 24)
+
+            cursor += 4
+            return value
+        }
+
+        // Vendor string.
+        guard let vendorLength = readLE32(),
+              vendorLength <= UInt32(max(0, end - cursor)) else {
+            return [:]
+        }
+        cursor += Int(vendorLength)
+
+        // Number of comments.
+        guard let count = readLE32(), count <= 100_000 else {
+            return [:]
+        }
+
+        var comments: [String: String] = [:]
+
+        for _ in 0..<count {
+            guard let commentLength = readLE32(),
+                  commentLength > 0,
+                  commentLength <= UInt32(max(0, end - cursor)) else {
+                return comments
+            }
+
+            let commentEnd = cursor + Int(commentLength)
+            let bytes = data.subdata(in: cursor..<commentEnd)
+            cursor = commentEnd
+
+            guard let comment = String(data: bytes, encoding: .utf8),
+                  let separator = comment.firstIndex(of: "=") else {
+                continue
+            }
+
+            let key = String(comment[..<separator])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .uppercased()
+
+            let value = String(comment[comment.index(after: separator)...])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if !key.isEmpty, !value.isEmpty, comments[key] == nil {
+                comments[key] = value
+            }
+        }
+
+        return comments
+    }
 
     // MARK: - External cover images
 
