@@ -28,6 +28,7 @@ struct ContentView: View {
     @State private var tab: MishTab = .playing
     @State private var showImporter = false
     @State private var importFolder = true
+    @State private var chaos = false
 
     // Folders for "Add folder", audio files for "Add files"
     private var importTypes: [UTType] {
@@ -36,10 +37,11 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            RadialGradient(colors: [Color(hex: 0x22232d), Color(hex: 0x101116), Color(hex: 0x090a0e)],
-                           center: UnitPoint(x: 0.5, y: 0.2),
-                           startRadius: 0, endRadius: 700)
-                .ignoresSafeArea()
+            MishVisualizerView(
+                spectrum: player.spectrum,
+                chaos: chaos
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 topBar
@@ -78,14 +80,19 @@ struct ContentView: View {
             }
             Spacer()
             HStack(spacing: 0) {
-                Text("MISH").font(.system(size: 17, weight: .black)).tracking(5)
-                Text(".").font(.system(size: 17, weight: .black)).foregroundColor(.mishGreen)
+                Text("mish")
+                    .font(.custom("DelaGothicOne-Regular", size: 20))
+                    .foregroundStyle(.white)
             }
             Spacer()
-            Button { } label: {                       // search: not built yet
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 18, weight: .medium))
-                    .frame(width: 44, height: 44)
+            Button {
+                chaos.toggle()
+            } label: {
+                Text(chaos ? "CHAOS" : "CALM")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .tracking(1)
+                    .foregroundStyle(chaos ? .pink : .cyan)
+                    .frame(width: 64, height: 44)
             }
         }
         .foregroundColor(.white)
