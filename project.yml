@@ -22,8 +22,7 @@ targets:
     resources:
       - path: Mish/Fonts
       - path: Mish/Assets.xcassets
-      - path: Mish/backgrounds
-        type: folder
+      - path: backgrounds
     info:
       path: Mish/Info.plist
       properties:
