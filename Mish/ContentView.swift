@@ -46,22 +46,34 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
+            
             if specialMode {
-                if let image = Self.underscoresBackground {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
-                        .ignoresSafeArea()
-                } else {
-                    Color.white.ignoresSafeArea()
+                GeometryReader { geometry in
+                    if let image = Self.underscoresBackground {
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(
+                                width: geometry.size.width,
+                                height: geometry.size.height
+                            )
+                            .clipped()
+                    } else {
+                        Color.white
+                    }
                 }
-                Color.white.opacity(0.16).ignoresSafeArea()
-            } else {
-                MishVisualizerView(spectrum: player.spectrum, chaos: chaos)
+                .ignoresSafeArea()
+
+                Color.white.opacity(0.16)
                     .ignoresSafeArea()
+            } else {
+                MishVisualizerView(
+                    spectrum: player.spectrum,
+                    chaos: chaos
+                )
+                .ignoresSafeArea()
             }
+
 
             VStack(spacing: 0) {
                 topBar
