@@ -402,21 +402,83 @@ struct TrackRow: View {
     }
 }
 
+
 struct TrackList: View {
     @EnvironmentObject var player: PlayerModel
+
     let tracks: [Track]
     let onSelect: (Track) -> Void
+    var onRemove: ((Track) -> Void)? = nil
+    var removeLabel: String = "Remove"
+
+    @State private var revealedTrackID: UUID? = nil
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 10) {
                 ForEach(Array(tracks.enumerated()), id: \.element.id) { offset, track in
-                    Button { onSelect(track) } label: {
-                        TrackRow(track: track,
-                                 badge: String(format: "%02d", offset + 1),
-                                 highlighted: track == player.currentTrack)
+                    HStack(spacing: 8) {
+                        Button {
+                            onSelect(track)
+                        } label: {
+                            TrackRow(
+                                track: track,
+                                badge: String(format: "%02d", offset + 1),
+                                highlighted: track == player.currentTrack
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        if let onRemove {
+                            if revealedTrackID == track.id {
+                                Button(role: .destructive) {
+                                    onRemove(track)
+                                    revealedTrackID = nil
+                                } label: {
+                                    Image(systemName: "trash.fill")
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundStyle(.red)
+                                        .frame(width: 42, height: 42)
+                                        .background(
+                                            Color.red.opacity(0.12),
+                                            in: RoundedRectangle(cornerRadius: 10)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(removeLabel)
+                            } else {
+                                Menu {
+                                    Button(role: .destructive) {
+                                        onRemove(track)
+                                    } label: {
+                                        Label(removeLabel, systemImage: "trash")
+                                    }
+                                } label: {
+                                    Image(systemName: "ellipsis")
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundStyle(Color.mishDim)
+                                        .frame(width: 32, height: 42)
+                                        .contentShape(Rectangle())
+                                }
+                            }
+                        }
                     }
-                    .buttonStyle(.plain)
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 20)
+                            .onEnded { value in
+                                if value.translation.width < -35 {
+                                    withAnimation(.easeOut(duration: 0.18)) {
+                                        revealedTrackID = track.id
+                                    }
+                                } else if value.translation.width > 35,
+                                          revealedTrackID == track.id {
+                                    withAnimation(.easeOut(duration: 0.18)) {
+                                        revealedTrackID = nil
+                                    }
+                                }
+                            }
+                    )
                 }
             }
             .padding(.horizontal, 20)
@@ -424,3 +486,4 @@ struct TrackList: View {
         }
     }
 }
+
