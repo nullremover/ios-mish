@@ -89,11 +89,11 @@ struct ContentView: View {
                 chaos.toggle()
             } label: {
                 Text(chaos ? "CHAOS" : "CALM")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .tracking(1)
-                    .foregroundStyle(chaos ? .pink : .cyan)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(chaos ? .purple : .cyan)
                     .frame(width: 64, height: 44)
             }
+            .buttonStyle(.plain)
         }
         .foregroundColor(.white)
         .padding(.horizontal, 12)
