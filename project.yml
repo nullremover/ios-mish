@@ -23,6 +23,7 @@ targets:
       - path: Mish/Fonts
       - path: Mish/Assets.xcassets
       - path: Mish/backgrounds
+        type: folder
     info:
       path: Mish/Info.plist
       properties:
