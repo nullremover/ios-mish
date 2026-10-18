@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct MishApp: App {
@@ -11,4 +12,13 @@ struct MishApp: App {
                 .preferredColorScheme(.dark)
         }
     }
+    init() {
+    for family in UIFont.familyNames.sorted() {
+        for name in UIFont.fontNames(forFamilyName: family) {
+            if name.localizedCaseInsensitiveContains("Dela") {
+                print("FOUND FONT:", name)
+            }
+        }
+    }
+}
 }
