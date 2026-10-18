@@ -122,17 +122,37 @@ struct ContentView: View {
     }
 
     // MARK: Library / Queue lists
+    
     private var libraryList: some View {
-        TrackList(tracks: player.tracks) { track in
-            if let i = player.tracks.firstIndex(of: track) { player.play(index: i) }
-        }
+        TrackList(
+            tracks: player.tracks,
+            onSelect: { track in
+                if let i = player.tracks.firstIndex(of: track) {
+                    player.play(index: i)
+                }
+            },
+            onRemove: { track in
+                player.removeFromLibrary(track)
+            },
+            removeLabel: "Remove from Library"
+        )
     }
 
     private var queueList: some View {
-        TrackList(tracks: player.queue) { track in
-            if let i = player.tracks.firstIndex(of: track) { player.play(index: i) }
-        }
+        TrackList(
+            tracks: player.queue,
+            onSelect: { track in
+                if let i = player.tracks.firstIndex(of: track) {
+                    player.play(index: i)
+                }
+            },
+            onRemove: { track in
+                player.removeFromQueue(track)
+            },
+            removeLabel: "Remove from Queue"
+        )
     }
+
 
     private var emptyState: some View {
         VStack(spacing: 14) {
