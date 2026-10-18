@@ -350,9 +350,14 @@ struct TrackRow: View {
                 if let image = track.artwork {
                     Image(uiImage: image).resizable().scaledToFill()
                 } else {
-                    LinearGradient(colors: [Color(hex: 0xc98b7c), Color(hex: 0x31345c)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing)
-                    Text(badge).font(.system(size: 10, weight: .heavy))
+                    LinearGradient(
+                        colors: [Color(hex: 0x353639), Color(hex: 0x252629)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    Text("m")
+                        .font(.custom("delagothicone-regular", size: 19))
+                        .foregroundStyle(Color(hex: 0xC9C9CD))
                 }
             }
             .frame(width: 39, height: 39)
