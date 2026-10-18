@@ -1,4 +1,4 @@
-import SwiftUI
+mport SwiftUI
 import UniformTypeIdentifiers
 
 // MARK: - Colors from the CSS
@@ -30,18 +30,38 @@ struct ContentView: View {
     @State private var importFolder = true
     @State private var chaos = false
 
-    // Folders for "Add folder", audio files for "Add files"
+    private var specialMode: Bool { player.isUnderscoresMode }
+
+    // project.yml bundles IMG_0451.jpg at the bundle root, not in a subdirectory.
+    private static var underscoresBackground: UIImage? {
+        guard let url = Bundle.main.url(forResource: "IMG_0451", withExtension: "jpg") else {
+            return nil
+        }
+        return UIImage(contentsOfFile: url.path)
+    }
+
     private var importTypes: [UTType] {
         importFolder ? [.folder] : [.audio, UTType(filenameExtension: "flac")].compactMap { $0 }
     }
 
     var body: some View {
         ZStack {
-            MishVisualizerView(
-                spectrum: player.spectrum,
-                chaos: chaos
-            )
-            .ignoresSafeArea()
+            if specialMode {
+                if let image = Self.underscoresBackground {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
+                        .ignoresSafeArea()
+                } else {
+                    Color.white.ignoresSafeArea()
+                }
+                Color.white.opacity(0.16).ignoresSafeArea()
+            } else {
+                MishVisualizerView(spectrum: player.spectrum, chaos: chaos)
+                    .ignoresSafeArea()
+            }
 
             VStack(spacing: 0) {
                 topBar
@@ -52,14 +72,17 @@ struct ContentView: View {
                         switch tab {
                         case .playing: NowPlayingView()
                         case .library: libraryList
-                        case .queue:   queueList
+                        case .queue: queueList
                         }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 bottomNav
             }
+            .foregroundStyle(specialMode ? Color.black : Color.white)
         }
+        .preferredColorScheme(specialMode ? .light : .dark)
+        .animation(.easeInOut(duration: 0.22), value: specialMode)
         .fileImporter(isPresented: $showImporter,
                       allowedContentTypes: importTypes,
                       allowsMultipleSelection: true) { result in
@@ -67,7 +90,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: Top bar  (menu / MISH. / search)
+    // MARK: Top bar (menu / MISH. / search)
     private var topBar: some View {
         HStack {
             Menu {
@@ -78,28 +101,26 @@ struct ContentView: View {
                     .font(.system(size: 20, weight: .medium))
                     .frame(width: 44, height: 44)
             }
+            .tint(specialMode ? .black : .white)
+
             Spacer()
-            HStack(spacing: 0) {
-                Text("mish")
-                    .font(.custom("delagothicone-regular", size: 20))
-                    .foregroundStyle(.white)
-            }
+            Text("mish")
+                .font(.custom("delagothicone-regular", size: 20))
+                .foregroundStyle(specialMode ? .black : .white)
             Spacer()
-            Button {
-                chaos.toggle()
-            } label: {
+            Button { chaos.toggle() } label: {
                 Text(chaos ? "Portal" : "CALM")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(chaos ? .purple : .cyan)
+                    .foregroundStyle(specialMode ? Color.black : (chaos ? .purple : .cyan))
                     .frame(width: 64, height: 44)
             }
             .buttonStyle(.plain)
         }
-        .foregroundColor(.white)
+        .foregroundColor(specialMode ? .black : .white)
         .padding(.horizontal, 12)
     }
 
-    // MARK: Bottom nav  (Library / Playing / Queue)
+    // MARK: Bottom nav
     private var bottomNav: some View {
         HStack {
             navItem("Library", icon: "music.note.list", for: .library)
@@ -107,7 +128,12 @@ struct ContentView: View {
             navItem("Queue", icon: "list.bullet", for: .queue)
         }
         .padding(.top, 8)
-        .overlay(Rectangle().fill(Color.white.opacity(0.07)).frame(height: 1), alignment: .top)
+        .overlay(
+            Rectangle()
+                .fill((specialMode ? Color.black : Color.white).opacity(0.12))
+                .frame(height: 1),
+            alignment: .top
+        )
     }
 
     private func navItem(_ title: String, icon: String, for target: MishTab) -> some View {
@@ -117,23 +143,21 @@ struct ContentView: View {
                 Text(title).font(.system(size: 10))
             }
             .frame(maxWidth: .infinity, minHeight: 44)
-            .foregroundColor(tab == target ? .white : Color(hex: 0x828491))
+            .foregroundColor(tab == target
+                ? (specialMode ? .black : .white)
+                : (specialMode ? Color.black.opacity(0.55) : Color(hex: 0x828491)))
         }
+        .buttonStyle(.plain)
     }
 
     // MARK: Library / Queue lists
-    
     private var libraryList: some View {
         TrackList(
             tracks: player.tracks,
             onSelect: { track in
-                if let i = player.tracks.firstIndex(of: track) {
-                    player.play(index: i)
-                }
+                if let i = player.tracks.firstIndex(of: track) { player.play(index: i) }
             },
-            onRemove: { track in
-                player.removeFromLibrary(track)
-            },
+            onRemove: { track in player.removeFromLibrary(track) },
             removeLabel: "Remove from Library"
         )
     }
@@ -142,25 +166,21 @@ struct ContentView: View {
         TrackList(
             tracks: player.queue,
             onSelect: { track in
-                if let i = player.tracks.firstIndex(of: track) {
-                    player.play(index: i)
-                }
+                if let i = player.tracks.firstIndex(of: track) { player.play(index: i) }
             },
-            onRemove: { track in
-                player.removeFromQueue(track)
-            },
+            onRemove: { track in player.removeFromQueue(track) },
             removeLabel: "Remove from Queue"
         )
     }
 
-
     private var emptyState: some View {
         VStack(spacing: 14) {
-            Image(systemName: "music.note.house").font(.system(size: 44)).foregroundColor(.mishDim)
+            Image(systemName: "music.note.house")
+                .font(.system(size: 44)).foregroundColor(.mishDim)
             Text("No music yet").font(.system(size: 18, weight: .semibold))
             Text("Add a folder from the menu, or copy files into the mish folder in the Files app.")
                 .font(.system(size: 12))
-                .foregroundColor(.mishDim)
+                .foregroundColor(specialMode ? Color.black.opacity(0.62) : .mishDim)
                 .multilineTextAlignment(.center)
             Button {
                 importFolder = true
@@ -184,6 +204,11 @@ struct NowPlayingView: View {
     @State private var scrubbing = false
     @State private var scrubValue: Double = 0
 
+    private var specialMode: Bool { player.isUnderscoresMode }
+    private var mainText: Color { specialMode ? .black : .white }
+    private var secondaryText: Color { specialMode ? Color.black.opacity(0.62) : Color(hex: 0xa7a8b3) }
+    private var progressTrack: Color { specialMode ? Color.black.opacity(0.22) : Color(hex: 0x454650) }
+    private var progressFill: Color { specialMode ? .black : Color(hex: 0xf5f5f7) }
     private var displayTime: Double { scrubbing ? scrubValue : player.currentTime }
     private var progress: Double {
         player.duration > 0 ? min(max(displayTime / player.duration, 0), 1) : 0
@@ -192,7 +217,7 @@ struct NowPlayingView: View {
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 18) {
-                artwork
+                if !specialMode { artwork }
                 trackInfo
                 seekBar
                 controls
@@ -202,9 +227,10 @@ struct NowPlayingView: View {
             .padding(.top, 6)
             .padding(.bottom, 12)
         }
+        .foregroundStyle(mainText)
+        .animation(.easeInOut(duration: 0.22), value: specialMode)
     }
 
-    // Square artwork card (gradient + "MISH" when the track has no cover)
     private var artwork: some View {
         Color.clear
             .aspectRatio(1, contentMode: .fit)
@@ -216,48 +242,36 @@ struct NowPlayingView: View {
                     } else {
                         ZStack {
                             LinearGradient(
-                                colors: [
-                                    Color(hex: 0x38393D),
-                                    Color(hex: 0x242528),
-                                    Color(hex: 0x303135)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                                colors: [Color(hex: 0x38393D), Color(hex: 0x242528), Color(hex: 0x303135)],
+                                startPoint: .topLeading, endPoint: .bottomTrailing
                             )
-                        
-                            Circle()
-                                .stroke(Color.white.opacity(0.07), lineWidth: 1)
-                                .padding(40)
-                        
+                            Circle().stroke(Color.white.opacity(0.07), lineWidth: 1).padding(40)
                             Text("mish")
                                 .font(.custom("delagothicone-regular", size: 42))
                                 .foregroundStyle(Color(hex: 0xD4D4D8))
                         }
-                                            }
-                                        }
-                                    )
-                                    .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
-                                    .shadow(color: Color.black.opacity(0.4), radius: 20, y: 18)
-                            }
+                    }
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
+            .shadow(color: Color.black.opacity(0.4), radius: 20, y: 18)
+    }
 
     private var trackInfo: some View {
         HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 5) {
                 Text(player.currentTrack?.title ?? "Nothing playing")
-                    .font(.system(size: 22, weight: .semibold))
-                    .lineLimit(2)
-                Text(subtitle)
-                    .font(.system(size: 12))
-                    .foregroundColor(Color(hex: 0xa7a8b3))
-                    .lineLimit(1)
+                    .font(.system(size: 22, weight: .semibold)).lineLimit(2)
+                Text(subtitle).font(.system(size: 12)).foregroundColor(secondaryText).lineLimit(1)
             }
             Spacer(minLength: 0)
             Button { liked.toggle() } label: {
                 Image(systemName: liked ? "heart.fill" : "heart")
                     .font(.system(size: 24))
-                    .foregroundColor(liked ? .mishGreen : Color.white.opacity(0.85))
+                    .foregroundColor(liked ? .mishGreen : mainText.opacity(0.85))
                     .frame(width: 44, height: 44)
             }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -268,13 +282,12 @@ struct NowPlayingView: View {
         return t.artist + album
     }
 
-    // Seek bar: tap or drag anywhere on it
     private var seekBar: some View {
         VStack(spacing: 7) {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color(hex: 0x454650)).frame(height: 4)
-                    Capsule().fill(Color(hex: 0xf5f5f7)).frame(width: geo.size.width * progress, height: 4)
+                    Capsule().fill(progressTrack).frame(height: 4)
+                    Capsule().fill(progressFill).frame(width: geo.size.width * progress, height: 4)
                 }
                 .frame(maxHeight: .infinity)
                 .contentShape(Rectangle())
@@ -291,53 +304,49 @@ struct NowPlayingView: View {
                 )
             }
             .frame(height: 24)
-
             HStack {
                 Text(formatTime(displayTime))
                 Spacer()
                 Text(formatTime(player.duration))
             }
-            .font(.system(size: 10))
-            .foregroundColor(Color(hex: 0x9698a5))
+            .font(.system(size: 10)).foregroundColor(secondaryText)
         }
     }
 
     private func clamp01(_ x: Double) -> Double { min(max(x, 0), 1) }
 
-    // shuffle / previous / play-pause / next / repeat
     private var controls: some View {
         HStack {
             controlButton(icon: "shuffle", size: 20,
-                          color: player.shuffleOn ? .mishGreen : .white) { player.shuffleOn.toggle() }
+                          color: player.shuffleOn ? .mishGreen : mainText) { player.shuffleOn.toggle() }
             Spacer()
             controlButton(icon: "backward.fill", size: 22) { player.previous() }
             Spacer()
             Button { player.togglePlay() } label: {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 23, weight: .bold))
-                    .foregroundColor(Color(hex: 0x121812))
+                    .foregroundColor(specialMode ? .white : Color(hex: 0x121812))
                     .frame(width: 58, height: 58)
-                    .background(Circle().fill(Color.white))
+                    .background(Circle().fill(specialMode ? Color.black : Color.white))
             }
+            .buttonStyle(.plain)
             Spacer()
             controlButton(icon: "forward.fill", size: 22) { player.next() }
             Spacer()
             controlButton(icon: player.repeatMode == .one ? "repeat.1" : "repeat", size: 20,
-                          color: player.repeatMode == .off ? .white : .mishGreen) { player.cycleRepeat() }
+                          color: player.repeatMode == .off ? mainText : .mishGreen) { player.cycleRepeat() }
         }
     }
 
-    private func controlButton(icon: String, size: CGFloat, color: Color = .white,
+    private func controlButton(icon: String, size: CGFloat, color: Color? = nil,
                                action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: size))
-                .foregroundColor(color)
-                .frame(width: 44, height: 44)
+            Image(systemName: icon).font(.system(size: size))
+                .foregroundColor(color ?? mainText).frame(width: 44, height: 44)
         }
+        .buttonStyle(.plain)
     }
 
-    // UP NEXT: the next three tracks
     private var upNext: some View {
         VStack(alignment: .leading, spacing: 11) {
             HStack {
@@ -360,72 +369,65 @@ struct NowPlayingView: View {
 
 // MARK: - Shared pieces
 struct TrackRow: View {
+    @EnvironmentObject var player: PlayerModel
     let track: Track
     let badge: String
     var highlighted = false
 
+    private var specialMode: Bool { player.isUnderscoresMode }
+
     var body: some View {
         HStack(spacing: 11) {
-            ZStack {
-                if let image = track.artwork {
-                    Image(uiImage: image).resizable().scaledToFill()
-                } else {
-                    LinearGradient(
-                        colors: [Color(hex: 0x353639), Color(hex: 0x252629)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    Text("m")
-                        .font(.custom("delagothicone-regular", size: 19))
-                        .foregroundStyle(Color(hex: 0xC9C9CD))
+            if !specialMode {
+                ZStack {
+                    if let image = track.artwork {
+                        Image(uiImage: image).resizable().scaledToFill()
+                    } else {
+                        LinearGradient(colors: [Color(hex: 0x353639), Color(hex: 0x252629)],
+                                       startPoint: .topLeading, endPoint: .bottomTrailing)
+                        Text("m").font(.custom("delagothicone-regular", size: 19))
+                            .foregroundStyle(Color(hex: 0xC9C9CD))
+                    }
                 }
+                .frame(width: 39, height: 39)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
-            .frame(width: 39, height: 39)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-
             VStack(alignment: .leading, spacing: 3) {
-                Text(track.title)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(highlighted ? .mishGreen : .white)
+                Text(track.title).font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(highlighted ? .mishGreen : (specialMode ? .black : .white))
                     .lineLimit(1)
-                Text(track.artist)
-                    .font(.system(size: 10))
-                    .foregroundColor(.mishDim)
+                Text(track.artist).font(.system(size: 10))
+                    .foregroundColor(specialMode ? Color.black.opacity(0.58) : .mishDim)
                     .lineLimit(1)
             }
             Spacer(minLength: 8)
             Text(track.duration > 0 ? formatTime(track.duration) : "")
                 .font(.system(size: 10))
-                .foregroundColor(.mishDim)
+                .foregroundColor(specialMode ? Color.black.opacity(0.58) : .mishDim)
         }
         .contentShape(Rectangle())
     }
 }
 
-
 struct TrackList: View {
     @EnvironmentObject var player: PlayerModel
-
     let tracks: [Track]
     let onSelect: (Track) -> Void
     var onRemove: ((Track) -> Void)? = nil
     var removeLabel: String = "Remove"
-
     @State private var revealedTrackID: UUID? = nil
+
+    private var specialMode: Bool { player.isUnderscoresMode }
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 10) {
                 ForEach(Array(tracks.enumerated()), id: \.element.id) { offset, track in
                     HStack(spacing: 8) {
-                        Button {
-                            onSelect(track)
-                        } label: {
-                            TrackRow(
-                                track: track,
-                                badge: String(format: "%02d", offset + 1),
-                                highlighted: track == player.currentTrack
-                            )
+                        Button { onSelect(track) } label: {
+                            TrackRow(track: track,
+                                     badge: String(format: "%02d", offset + 1),
+                                     highlighted: track == player.currentTrack)
                         }
                         .buttonStyle(.plain)
 
@@ -439,24 +441,20 @@ struct TrackList: View {
                                         .font(.system(size: 16, weight: .semibold))
                                         .foregroundStyle(.red)
                                         .frame(width: 42, height: 42)
-                                        .background(
-                                            Color.red.opacity(0.12),
-                                            in: RoundedRectangle(cornerRadius: 10)
-                                        )
+                                        .background(Color.red.opacity(0.12),
+                                                    in: RoundedRectangle(cornerRadius: 10))
                                 }
                                 .buttonStyle(.plain)
                                 .accessibilityLabel(removeLabel)
                             } else {
                                 Menu {
-                                    Button(role: .destructive) {
-                                        onRemove(track)
-                                    } label: {
+                                    Button(role: .destructive) { onRemove(track) } label: {
                                         Label(removeLabel, systemImage: "trash")
                                     }
                                 } label: {
                                     Image(systemName: "ellipsis")
                                         .font(.system(size: 17, weight: .semibold))
-                                        .foregroundStyle(Color.mishDim)
+                                        .foregroundStyle(specialMode ? Color.black.opacity(0.7) : Color.mishDim)
                                         .frame(width: 32, height: 42)
                                         .contentShape(Rectangle())
                                 }
@@ -468,14 +466,9 @@ struct TrackList: View {
                         DragGesture(minimumDistance: 20)
                             .onEnded { value in
                                 if value.translation.width < -35 {
-                                    withAnimation(.easeOut(duration: 0.18)) {
-                                        revealedTrackID = track.id
-                                    }
-                                } else if value.translation.width > 35,
-                                          revealedTrackID == track.id {
-                                    withAnimation(.easeOut(duration: 0.18)) {
-                                        revealedTrackID = nil
-                                    }
+                                    withAnimation(.easeOut(duration: 0.18)) { revealedTrackID = track.id }
+                                } else if value.translation.width > 35, revealedTrackID == track.id {
+                                    withAnimation(.easeOut(duration: 0.18)) { revealedTrackID = nil }
                                 }
                             }
                     )
@@ -484,6 +477,6 @@ struct TrackList: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
         }
+        .foregroundStyle(specialMode ? Color.black : Color.white)
     }
 }
-
