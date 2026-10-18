@@ -1,0 +1,48 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:   # also adds a "Run workflow" button in the Actions tab
+
+# If this project lives in a subfolder of a bigger repo (e.g. "ios/"), uncomment:
+# defaults:
+#   run:
+#     working-directory: ios
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      # The IPA is left UNSIGNED on purpose: Sideloadly signs it with your Apple ID when you install it.
+      - name: Build
+        run: |
+          xcodebuild \
+            -project Mish.xcodeproj \
+            -scheme Mish \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package the .ipa
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/Mish.app Payload/
+          zip -qry Mish.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mish-ipa
+          path: Mish.ipa

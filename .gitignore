@@ -1,0 +1,7 @@
+# generated on the CI runner by XcodeGen
+Mish.xcodeproj/
+Mish/Info.plist
+build/
+Payload/
+*.ipa
+.DS_Store
