@@ -32,6 +32,7 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published private(set) var tracks: [Track] = []
     @Published private(set) var currentIndex: Int? = nil
     @Published private(set) var isPlaying = false
+    @Published private(set) var hasActivePlayback = false
     @Published private(set) var currentTime: TimeInterval = 0
     @Published private(set) var spectrum: [Float] =
         Array(repeating: 0, count: MishSpectrumAnalyzer.bandCount)
@@ -40,37 +41,38 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         didSet { rebuildOrder() }
     }
 
+    /// Active for playing and paused tracks, but false after playback reaches its end.
+    var isUnderscoresMode: Bool {
+        guard hasActivePlayback, let artist = currentTrack?.artist else { return false }
+        return artist.trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare("underscores") == .orderedSame
+    }
+
     // MARK: - Private state
     private var player: AVAudioPlayer?
     private let audioSampler = MishAudioSampler()
-    private var order: [Int] = []          // playback order: indices into `tracks` (shuffled or not)
-    private var orderPos = 0               // where we are inside `order`
+    private var order: [Int] = []
+    private var orderPos = 0
     private var timer: Timer?
-    private var roots: [URL] = []          // folders / files the library is built from
-    private var bookmarkDatas: [Data] = [] // saved so the library survives app restarts
-    private var accessed = Set<URL>()      // security-scoped URLs we've opened
+    private var roots: [URL] = []
+    private var bookmarkDatas: [Data] = []
+    private var accessed = Set<URL>()
     private var metadataTask: Task<Void, Never>?
 
     private let bookmarksKey = "mish.bookmarks"
     private let removedLibraryKey = "mish.removedLibraryURLs"
 
     private var removedLibraryURLs: Set<String> {
-        get {
-            Set(UserDefaults.standard.stringArray(forKey: removedLibraryKey) ?? [])
-        }
-        set {
-            UserDefaults.standard.set(
-                Array(newValue),
-                forKey: removedLibraryKey
-            )
-        }
+        get { Set(UserDefaults.standard.stringArray(forKey: removedLibraryKey) ?? []) }
+        set { UserDefaults.standard.set(Array(newValue), forKey: removedLibraryKey) }
     }
-    
+
     private var queueExcludedURLs = Set<String>()
-    
+
     private func trackKey(_ url: URL) -> String {
         url.standardizedFileURL.absoluteString
     }
+
     // AVAudioPlayer plays these natively on iOS (no .ogg, iOS can't decode it)
     private static let audioExtensions: Set<String> = ["mp3", "m4a", "aac", "wav", "aif", "aiff", "caf", "flac"]
 
@@ -82,48 +84,34 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     var duration: TimeInterval { player?.duration ?? currentTrack?.duration ?? 0 }
 
-    
     /// Tracks still included in the playback queue.
     var queue: [Track] {
         order.compactMap { index in
             guard tracks.indices.contains(index) else { return nil }
             let track = tracks[index]
-            return queueExcludedURLs.contains(trackKey(track.url))
-                ? nil
-                : track
+            return queueExcludedURLs.contains(trackKey(track.url)) ? nil : track
         }
     }
 
     /// The next three eligible tracks.
     var upNext: [Track] {
         guard !order.isEmpty else { return [] }
-
         var result: [Track] = []
         var pos = currentIndex == nil ? -1 : orderPos
         var checked = 0
-
         while checked < order.count && result.count < 3 {
             pos += 1
-
             if pos >= order.count {
                 guard repeatMode == .all else { break }
                 pos = 0
             }
-
             checked += 1
             let index = order[pos]
-
             guard tracks.indices.contains(index) else { continue }
-
-            // Don't list the current track again after wrapping around.
             if currentIndex == index { continue }
-
             let track = tracks[index]
-            if !queueExcludedURLs.contains(trackKey(track.url)) {
-                result.append(track)
-            }
+            if !queueExcludedURLs.contains(trackKey(track.url)) { result.append(track) }
         }
-
         return result
     }
 
@@ -183,7 +171,7 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let optionsRaw = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
         DispatchQueue.main.async {
             if type == .began {
-                self.pause()                       // phone call, alarm, Siri...
+                self.pause()
             } else if AVAudioSession.InterruptionOptions(rawValue: optionsRaw).contains(.shouldResume) {
                 self.resume()
             }
@@ -202,7 +190,7 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         UserDefaults.standard.set(bookmarkDatas, forKey: bookmarksKey)
         scan()
     }
-    
+
     /// Excludes a track from the queue without removing it from the library.
     func removeFromQueue(_ track: Track) {
         queueExcludedURLs.insert(trackKey(track.url))
@@ -220,24 +208,17 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             player = nil
             timer?.invalidate()
             timer = nil
-
             isPlaying = false
+            hasActivePlayback = false
             currentTime = 0
             currentIndex = nil
-            spectrum = Array(
-                repeating: 0,
-                count: MishSpectrumAnalyzer.bandCount
-            )
-
+            spectrum = Array(repeating: 0, count: MishSpectrumAnalyzer.bandCount)
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         }
-
         scan()
     }
 
-
     private func restoreLibrary() {
-        // The app's own Documents folder (shows up in Files > On My iPhone > mish)
         if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             roots.append(docs)
         }
@@ -253,13 +234,12 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     private func scan() {
         var found: [URL] = []
-
         for root in roots {
             if !accessed.contains(root), root.startAccessingSecurityScopedResource() {
                 accessed.insert(root)
             }
             if Self.audioExtensions.contains(root.pathExtension.lowercased()) {
-                found.append(root) // a single file
+                found.append(root)
             } else if let e = FileManager.default.enumerator(at: root,
                                                              includingPropertiesForKeys: [.isRegularFileKey],
                                                              options: [.skipsHiddenFiles]) {
@@ -270,21 +250,12 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
 
         let currentURL = currentTrack?.url
-
         tracks = Array(Set(found))
             .filter { !removedLibraryURLs.contains(trackKey($0)) }
             .sorted { $0.path.lowercased() < $1.path.lowercased() }
-            .map {
-                Track(
-                    url: $0,
-                    title: $0.deletingPathExtension().lastPathComponent
-                )
-            }
-        
-        currentIndex = currentURL.flatMap { url in
-            tracks.firstIndex { $0.url == url }
-        }
-        
+            .map { Track(url: $0, title: $0.deletingPathExtension().lastPathComponent) }
+
+        currentIndex = currentURL.flatMap { url in tracks.firstIndex { $0.url == url } }
         rebuildOrder()
         loadMetadata()
     }
@@ -306,30 +277,14 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                     meta.album = await Self.string(items, .commonIdentifierAlbumName)
                     meta.artwork = await Self.artwork(items)
                 }
-                
                 if track.url.pathExtension.lowercased() == "flac" {
                     let tags = ArtworkMetadataReader.flacComments(for: track.url)
-    
-                    if meta.title == nil {
-                        meta.title = tags["TITLE"]
-                    }
-    
-                    if meta.artist == nil {
-                        meta.artist = tags["ARTIST"] ?? tags["ALBUMARTIST"]
-                    }
-    
-                    if meta.album == nil {
-                        meta.album = tags["ALBUM"]
-                    }
+                    if meta.title == nil { meta.title = tags["TITLE"] }
+                    if meta.artist == nil { meta.artist = tags["ARTIST"] ?? tags["ALBUMARTIST"] }
+                    if meta.album == nil { meta.album = tags["ALBUM"] }
                 }
-    
-                if meta.artwork == nil {
-                    meta.artwork = ArtworkMetadataReader.embeddedArtwork(for: track.url)
-                }
-    
-                if meta.artwork == nil {
-                    meta.artwork = ArtworkMetadataReader.folderArtwork(for: track.url)
-                }
+                if meta.artwork == nil { meta.artwork = ArtworkMetadataReader.embeddedArtwork(for: track.url) }
+                if meta.artwork == nil { meta.artwork = ArtworkMetadataReader.folderArtwork(for: track.url) }
                 batch.append(meta)
                 if batch.count >= 25 {
                     let toApply = batch
@@ -346,8 +301,7 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     private static func string(_ items: [AVMetadataItem], _ id: AVMetadataIdentifier) async -> String? {
         guard let item = AVMetadataItem.metadataItems(from: items, filteredByIdentifier: id).first,
-              let value = try? await item.load(.stringValue),
-              !value.isEmpty else { return nil }
+              let value = try? await item.load(.stringValue), !value.isEmpty else { return nil }
         return value
     }
 
@@ -376,7 +330,6 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private func rebuildOrder() {
         let all = Array(tracks.indices)
         if shuffleOn {
-            // Every track once in random order, starting with the one that's playing
             var rest = all.filter { $0 != currentIndex }
             rest.shuffle()
             order = (currentIndex.map { [$0] } ?? []) + rest
@@ -401,6 +354,7 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             currentIndex = index
             if let pos = order.firstIndex(of: index) { orderPos = pos }
             isPlaying = true
+            hasActivePlayback = true
             currentTime = 0
             startTimer()
             updateNowPlaying()
@@ -418,6 +372,7 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
         player?.play()
         isPlaying = true
+        hasActivePlayback = true
         startTimer()
         updateNowPlaying()
     }
@@ -429,18 +384,14 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         updateNowPlaying()
     }
 
-    
     func next() {
         guard !order.isEmpty else {
             stopAtEnd()
             return
         }
-
         var pos = orderPos
-
         for _ in 0..<order.count {
             pos += 1
-
             if pos >= order.count {
                 guard repeatMode == .all else {
                     stopAtEnd()
@@ -448,10 +399,8 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 }
                 pos = 0
             }
-
             let index = order[pos]
             guard tracks.indices.contains(index) else { continue }
-
             let track = tracks[index]
             if !queueExcludedURLs.contains(trackKey(track.url)) {
                 orderPos = pos
@@ -459,7 +408,6 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                 return
             }
         }
-
         stopAtEnd()
     }
 
@@ -468,33 +416,21 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             seek(to: 0)
             return
         }
-
         guard !order.isEmpty else { return }
-
         var pos = orderPos
-
         for _ in 0..<order.count {
             pos -= 1
-
             if pos < 0 {
-                if repeatMode == .all {
-                    pos = order.count - 1
-                } else {
-                    pos = 0
-                }
+                if repeatMode == .all { pos = order.count - 1 } else { pos = 0 }
             }
-
             let index = order[pos]
             guard tracks.indices.contains(index) else { continue }
-
             let track = tracks[index]
             if !queueExcludedURLs.contains(trackKey(track.url)) {
                 orderPos = pos
                 play(index: index)
                 return
             }
-
-            // At the beginning without repeat, there is nowhere else to go.
             if pos == 0 && repeatMode != .all { break }
         }
     }
@@ -518,42 +454,26 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         player?.stop()
         player?.currentTime = 0
         isPlaying = false
+        hasActivePlayback = false
         currentTime = 0
         timer?.invalidate()
         updateNowPlaying()
     }
 
     private func startTimer() {
-    timer?.invalidate()
-
-    timer = Timer.scheduledTimer(
-        withTimeInterval: 0.1,
-        repeats: true
-    ) { [weak self] _ in
-        guard let self = self,
-              let player = self.player else { return }
-
-        self.currentTime = player.currentTime
-
-        guard self.isPlaying,
-              let track = self.currentTrack else { return }
-
-        let url = track.url
-        let time = player.currentTime
-
-        self.audioSampler.analyze(url: url, at: time) {
-            [weak self] newSpectrum in
-
-            guard let self = self,
-                  self.isPlaying,
-                  self.currentTrack?.url == url else {
-                return
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self = self, let player = self.player else { return }
+            self.currentTime = player.currentTime
+            guard self.isPlaying, let track = self.currentTrack else { return }
+            let url = track.url
+            let time = player.currentTime
+            self.audioSampler.analyze(url: url, at: time) { [weak self] newSpectrum in
+                guard let self = self, self.isPlaying, self.currentTrack?.url == url else { return }
+                self.spectrum = newSpectrum
             }
-
-            self.spectrum = newSpectrum
         }
     }
-}
 
     // A track finished by itself
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
