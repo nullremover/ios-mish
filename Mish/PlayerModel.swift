@@ -34,6 +34,8 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     @Published private(set) var isPlaying = false
     @Published private(set) var hasActivePlayback = false
     @Published private(set) var currentTime: TimeInterval = 0
+    @Published private(set) var playlists: [MishPlaylist] = []
+    private let playlistsKey = "mish.playlists"
     @Published private(set) var spectrum: [Float] =
         Array(repeating: 0, count: MishSpectrumAnalyzer.bandCount)
     @Published var repeatMode: RepeatMode = .off
@@ -125,6 +127,7 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
                                                name: AVAudioSession.interruptionNotification,
                                                object: nil)
         restoreLibrary()
+        restorePlaylists()
     }
 
     private func configureAudioSession() {
@@ -298,7 +301,116 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             }
         }
     }
+    
+    
+private func savePlaylists() {
+    guard let data = try? JSONEncoder().encode(playlists) else {
+        return
+    }
 
+    UserDefaults.standard.set(data, forKey: playlistsKey)
+}
+
+private func restorePlaylists() {
+    guard let data = UserDefaults.standard.data(
+        forKey: playlistsKey
+    ),
+    let saved = try? JSONDecoder().decode(
+        [MishPlaylist].self,
+        from: data
+    ) else {
+        return
+    }
+
+    playlists = saved
+}
+
+func createPlaylist(name: String) {
+    let cleaned = name.trimmingCharacters(
+        in: .whitespacesAndNewlines
+    )
+
+    guard !cleaned.isEmpty else { return }
+
+    playlists.append(
+        MishPlaylist(name: cleaned, trackPaths: [])
+    )
+
+    savePlaylists()
+}
+
+func renamePlaylist(id: UUID, name: String) {
+    let cleaned = name.trimmingCharacters(
+        in: .whitespacesAndNewlines
+    )
+
+    guard !cleaned.isEmpty,
+          let index = playlists.firstIndex(where: {
+              $0.id == id
+          }) else {
+        return
+    }
+
+    playlists[index].name = cleaned
+    savePlaylists()
+}
+
+func deletePlaylist(id: UUID) {
+    playlists.removeAll { $0.id == id }
+    savePlaylists()
+}
+
+func addToPlaylist(id: UUID, track: Track) {
+    guard let index = playlists.firstIndex(where: {
+        $0.id == id
+    }) else {
+        return
+    }
+
+    playlists[index].add(track.url)
+    savePlaylists()
+}
+
+    func removeFromPlaylist(id: UUID, at index: Int) {
+        guard let playlistIndex = playlists.firstIndex(where: {
+            $0.id == id
+        }) else {
+            return
+        }
+    
+        playlists[playlistIndex].remove(at: index)
+        savePlaylists()
+    }
+    
+    func reorderPlaylist(
+        id: UUID,
+        from source: IndexSet,
+        to destination: Int
+    ) {
+        guard let index = playlists.firstIndex(where: {
+            $0.id == id
+        }) else {
+            return
+        }
+    
+        playlists[index].move(
+            from: source,
+            to: destination
+        )
+    
+        savePlaylists()
+    }
+    
+    func tracks(in playlist: MishPlaylist) -> [Track?] {
+        playlist.trackPaths.map { path in
+            guard let url = URL(string: path) else {
+                return nil
+            }
+    
+            return tracks.first { $0.url == url }
+        }
+    }
+    
     private static func string(_ items: [AVMetadataItem], _ id: AVMetadataIdentifier) async -> String? {
         guard let item = AVMetadataItem.metadataItems(from: items, filteredByIdentifier: id).first,
               let value = try? await item.load(.stringValue), !value.isEmpty else { return nil }
