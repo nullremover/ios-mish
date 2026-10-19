@@ -295,6 +295,7 @@ struct NowPlayingView: View {
     }
 
     
+    
     private var seekBar: some View {
         VStack(spacing: 7) {
             GeometryReader { geo in
@@ -347,6 +348,7 @@ struct NowPlayingView: View {
             .foregroundColor(secondaryText)
         }
     }
+
 
     private func clamp01(_ x: Double) -> Double { min(max(x, 0), 1) }
 
