@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 struct MishVisualizerView: View {
@@ -26,7 +25,7 @@ struct MishVisualizerView: View {
 
                 context.fill(
                     Path(CGRect(origin: .zero, size: canvasSize)),
-                    with: .color(.black)
+                    with: .color(chaos ? .black : Color(red: 3/255, green: 5/255, blue: 15/255))
                 )
 
                 // Soft background glow.
@@ -70,7 +69,8 @@ struct MishVisualizerView: View {
                     drawCalm(
                         context: &context,
                         center: center,
-                        baseRadius: baseRadius
+                        scale: scale,
+                        time: time
                     )
                 }
             }
@@ -80,83 +80,125 @@ struct MishVisualizerView: View {
         .background(.black)
     }
 
-    // MARK: - CALM
+    // MARK: - CALM (Ported Desktop C++ SFML Logic)
 
     private func drawCalm(
         context: inout GraphicsContext,
         center: CGPoint,
-        baseRadius: CGFloat
+        scale: CGFloat,
+        time: Double
     ) {
-        let count = min(spectrum.count, 180)
-        guard count > 0 else { return }
+        let spectrumCount = spectrum.count
+        guard spectrumCount > 0 else { return }
 
-        var ring = Path()
+        // Tuning knobs matching desktop C++ implementation
+        let calmLowBar = 90
+        let calmHighBar = 470
+        let calmTilt: Float = 0.5f
+        let calmGain: Float = 200.0f
+        let calmMaxWave: Float = 350.0f
+        let calmBaseRadius: CGFloat = 225.0f * scale
+        let calmAngleOffset = Double.pi / 2.0
 
-        for index in 0..<count {
-            let angle =
-                Double(index) / Double(count) * 2 * Double.pi
-                - Double.pi / 2
+        let points = 128
+        let halfPoints = points / 2
 
-            let level = CGFloat(
-                spectrum[index * spectrum.count / count]
+        func band(_ index: Int) -> Float {
+            let idx = max(0, min(index, spectrumCount - 1))
+            return spectrum[idx]
+        }
+
+        // --- 0. PRE-COMPUTE WAVE HEIGHTS WITH SPECTRAL TILT & SOFT-CLIPPING ---
+        var wave = [CGFloat](repeating: 0, count: halfPoints + 1)
+        let slotWidth = CGFloat(calmHighBar - calmLowBar) / CGFloat(halfPoints)
+
+        for p in 0...halfPoints {
+            let centerBar = CGFloat(calmLowBar) + (CGFloat(p) / CGFloat(halfPoints)) * CGFloat(calmHighBar - calmLowBar)
+            let lo = max(0, Int(floor(centerBar - slotWidth)))
+            let hi = min(511, Int(ceil(centerBar + slotWidth)))
+
+            var sum: Float = 0.0
+            let countInRange = max(1, hi - lo + 1)
+            for b in lo...hi {
+                let freq = 20.0f * pow(800.0f, Float(b) / 512.0f)
+                let tilt = pow(freq / 1000.0f, calmTilt)
+                sum += band(b) * tilt
+            }
+            let level = sum / Float(countInRange)
+            
+            // Soft-clip transformation matching C++ tanh logic
+            let softClipped = calmMaxWave * tanh(level * calmGain / calmMaxWave)
+            wave[p] = CGFloat(softClipped) * scale
+        }
+
+        // Compute bass intensity for the reactive core
+        let bassCount = min(35, spectrumCount)
+        let bassSum = (0..<bassCount).reduce(0.0) { $0 + Double(spectrum[$1]) }
+        let bassIntensity = bassCount > 0 ? CGFloat(bassSum / Double(bassCount)) : 0.0
+
+        // --- 1. FILLED PORTAL MESH (Triangle Fan equivalent) ---
+        var portal = Path()
+        portal.move(to: center)
+
+        for i in 0...points {
+            let angle = Double(i) / Double(points) * 2.0 * Double.pi + calmAngleOffset
+            let mirroredI = (i <= halfPoints) ? i : (points - i)
+            let breathing = sin(time * 2.0 + Double(i) * 0.15) * 4.0 * Double(scale)
+            let radius = calmBaseRadius + wave[mirroredI] + CGFloat(breathing)
+
+            let point = CGPoint(
+                x: center.x + CGFloat(cos(angle)) * radius,
+                y: center.y + CGFloat(sin(angle)) * radius
             )
+            portal.addLine(to: point)
+        }
+        portal.closeSubpath()
 
-            let radius = baseRadius * (
-                0.72 + level * 1.0
-            )
+        context.fill(
+            portal,
+            with: .color(Color(red: 80/255, green: 200/255, blue: 255/255).opacity(0.35))
+        )
+
+        // --- 2. OUTER WAVEFORM OUTLINE ---
+        var outline = Path()
+
+        for i in 0...points {
+            let angle = Double(i) / Double(points) * 2.0 * Double.pi + calmAngleOffset
+            let mirroredI = (i <= halfPoints) ? i : (points - i)
+            let radius = calmBaseRadius + wave[mirroredI]
 
             let point = CGPoint(
                 x: center.x + CGFloat(cos(angle)) * radius,
                 y: center.y + CGFloat(sin(angle)) * radius
             )
 
-            if index == 0 {
-                ring.move(to: point)
+            if i == 0 {
+                outline.move(to: point)
             } else {
-                ring.addLine(to: point)
+                outline.addLine(to: point)
             }
         }
-
-        ring.closeSubpath()
+        outline.closeSubpath()
 
         context.stroke(
-            ring,
-            with: .color(.cyan.opacity(0.8)),
-            lineWidth: 2
+            outline,
+            with: .color(Color(red: 120/255, green: 230/255, blue: 255/255).opacity(0.85)),
+            lineWidth: 2 * scale
         )
 
-        for index in 0..<count {
-            let angle =
-                Double(index) / Double(count) * 2 * Double.pi
-                - Double.pi / 2
+        // --- 3. REACTIVE CORE ---
+        let coreSize = (4.0 + bassIntensity * 8.0) * scale
+        let coreRect = CGRect(
+            x: center.x - coreSize,
+            y: center.y - coreSize,
+            width: coreSize * 2,
+            height: coreSize * 2
+        )
 
-            let level = CGFloat(
-                spectrum[index * spectrum.count / count]
-            )
-
-            let inner = baseRadius * 1.05
-            let outer = inner + level * 65
-
-            let start = CGPoint(
-                x: center.x + CGFloat(cos(angle)) * inner,
-                y: center.y + CGFloat(sin(angle)) * inner
-            )
-
-            let end = CGPoint(
-                x: center.x + CGFloat(cos(angle)) * outer,
-                y: center.y + CGFloat(sin(angle)) * outer
-            )
-
-            var bar = Path()
-            bar.move(to: start)
-            bar.addLine(to: end)
-
-            context.stroke(
-                bar,
-                with: .color(.cyan.opacity(0.35 + level * 0.65)),
-                lineWidth: 2
-            )
-        }
+        context.fill(
+            Path(ellipseIn: coreRect),
+            with: .color(Color(red: 230/255, green: 250/255, blue: 1.0).opacity(0.5))
+        )
     }
 
     // MARK: - CHAOS
@@ -195,7 +237,6 @@ struct MishVisualizerView: View {
         let treblePulse = min(1, treble * 3.0)
 
         // 1. Geometric fracture web.
-        // The web twists and breathes with time and frequency.
         let pointCount = 90
         var web = Path()
 
@@ -241,7 +282,6 @@ struct MishVisualizerView: View {
         )
 
         // 2. Cross-linked geometry.
-        // Connecting non-adjacent points makes the web feel fractured.
         for index in stride(from: 0, to: pointCount, by: 3) {
             let angleA =
                 Double(index) * 4 * Double.pi / 45
@@ -354,7 +394,6 @@ struct MishVisualizerView: View {
         }
 
         // 4. Audio-reactive outward sparks.
-        // Their positions are deterministic, so they don't randomly flicker.
         let sparkCount = 24
 
         for spark in 0..<sparkCount {
@@ -441,4 +480,4 @@ struct MishVisualizerView: View {
         guard !spectrum.isEmpty else { return 0 }
         return spectrum[index % spectrum.count]
     }
-} 
+}
