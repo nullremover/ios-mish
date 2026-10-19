@@ -20,6 +20,7 @@ func formatTime(_ t: TimeInterval) -> String {
     return String(format: "%d:%02d", s / 60, s % 60)
 }
 
+
 enum MishTab { case library, playing, queue }
 
 // MARK: - Root
@@ -29,24 +30,28 @@ struct ContentView: View {
     @State private var showImporter = false
     @State private var importFolder = true
     @State private var chaos = false
+    @State private var showPlaylists = false
 
     private var specialMode: Bool { player.isUnderscoresMode }
 
-    // project.yml bundles IMG_0451.jpg at the bundle root, not in a subdirectory.
     private static var underscoresBackground: UIImage? {
-        guard let url = Bundle.main.url(forResource: "IMG_0451", withExtension: "jpg") else {
+        guard let url = Bundle.main.url(
+            forResource: "IMG_0451",
+            withExtension: "jpg"
+        ) else {
             return nil
         }
         return UIImage(contentsOfFile: url.path)
     }
 
     private var importTypes: [UTType] {
-        importFolder ? [.folder] : [.audio, UTType(filenameExtension: "flac")].compactMap { $0 }
+        importFolder
+            ? [.folder]
+            : [.audio, UTType(filenameExtension: "flac")].compactMap { $0 }
     }
 
     var body: some View {
         ZStack {
-            
             if specialMode {
                 GeometryReader { geometry in
                     if let image = Self.underscoresBackground {
@@ -74,33 +79,222 @@ struct ContentView: View {
                 .ignoresSafeArea()
             }
 
-
             VStack(spacing: 0) {
                 topBar
+
                 Group {
                     if player.tracks.isEmpty {
                         emptyState
                     } else {
                         switch tab {
-                        case .playing: NowPlayingView()
-                        case .library: libraryList
-                        case .queue: queueList
+                        case .playing:
+                            NowPlayingView()
+                        case .library:
+                            libraryList
+                        case .queue:
+                            queueList
                         }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+
                 bottomNav
             }
             .foregroundStyle(specialMode ? Color.black : Color.white)
         }
         .preferredColorScheme(specialMode ? .light : .dark)
         .animation(.easeInOut(duration: 0.22), value: specialMode)
-        .fileImporter(isPresented: $showImporter,
-                      allowedContentTypes: importTypes,
-                      allowsMultipleSelection: true) { result in
-            if case .success(let urls) = result { player.addRoots(urls) }
+
+        // Music file/folder importer
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: importTypes,
+            allowsMultipleSelection: true
+        ) { result in
+            if case .success(let urls) = result {
+                player.addRoots(urls)
+            }
+        }
+
+        // Playlist screen
+        .sheet(isPresented: $showPlaylists) {
+            PlaylistsView()
+                .environmentObject(player)
+                .preferredColorScheme(.dark)
         }
     }
+
+    // MARK: Top bar
+    private var topBar: some View {
+        HStack {
+            Menu {
+                Button("Add music folder…") {
+                    importFolder = true
+                    showImporter = true
+                }
+
+                Button("Add music files…") {
+                    importFolder = false
+                    showImporter = true
+                }
+
+                Divider()
+
+                Button {
+                    showPlaylists = true
+                } label: {
+                    Label(
+                        "Playlists",
+                        systemImage: "music.note.list"
+                    )
+                }
+            } label: {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 20, weight: .medium))
+                    .frame(width: 44, height: 44)
+            }
+            .tint(specialMode ? .black : .white)
+
+            Spacer()
+
+            Text("mish")
+                .font(.custom("delagothicone-regular", size: 20))
+                .foregroundStyle(specialMode ? .black : .white)
+
+            Spacer()
+
+            Button {
+                chaos.toggle()
+            } label: {
+                Text(chaos ? "Portal" : "CALM")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(
+                        specialMode
+                            ? Color.black
+                            : (chaos ? .purple : .cyan)
+                    )
+                    .frame(width: 64, height: 44)
+            }
+            .buttonStyle(.plain)
+        }
+        .foregroundColor(specialMode ? .black : .white)
+        .padding(.horizontal, 12)
+    }
+
+    // MARK: Bottom nav
+    private var bottomNav: some View {
+        HStack {
+            navItem("Library", icon: "music.note.list", for: .library)
+            navItem("Playing", icon: "music.note", for: .playing)
+            navItem("Queue", icon: "list.bullet", for: .queue)
+        }
+        .padding(.top, 8)
+        .overlay(
+            Rectangle()
+                .fill(
+                    (specialMode ? Color.black : Color.white)
+                        .opacity(0.12)
+                )
+                .frame(height: 1),
+            alignment: .top
+        )
+    }
+
+    private func navItem(
+        _ title: String,
+        icon: String,
+        for target: MishTab
+    ) -> some View {
+        Button {
+            tab = target
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 19))
+
+                Text(title)
+                    .font(.system(size: 10))
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .foregroundColor(
+                tab == target
+                    ? (specialMode ? .black : .white)
+                    : (specialMode
+                        ? Color.black.opacity(0.55)
+                        : Color(hex: 0x828491))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: Library / Queue lists
+    private var libraryList: some View {
+        TrackList(
+            tracks: player.tracks,
+            onSelect: { track in
+                if let i = player.tracks.firstIndex(of: track) {
+                    player.play(index: i)
+                }
+            },
+            onRemove: { track in
+                player.removeFromLibrary(track)
+            },
+            removeLabel: "Remove from Library"
+        )
+    }
+
+    private var queueList: some View {
+        TrackList(
+            tracks: player.queue,
+            onSelect: { track in
+                if let i = player.tracks.firstIndex(of: track) {
+                    player.play(index: i)
+                }
+            },
+            onRemove: { track in
+                player.removeFromQueue(track)
+            },
+            removeLabel: "Remove from Queue"
+        )
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "music.note.house")
+                .font(.system(size: 44))
+                .foregroundColor(.mishDim)
+
+            Text("No music yet")
+                .font(.system(size: 18, weight: .semibold))
+
+            Text(
+                "Add a folder from the menu, or copy files into the mish folder in the Files app."
+            )
+            .font(.system(size: 12))
+            .foregroundColor(
+                specialMode
+                    ? Color.black.opacity(0.62)
+                    : .mishDim
+            )
+            .multilineTextAlignment(.center)
+
+            Button {
+                importFolder = true
+                showImporter = true
+            } label: {
+                Text("Add music folder")
+                    .font(.system(size: 14, weight: .bold))
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule().fill(Color.mishGreen)
+                    )
+                    .foregroundColor(Color(hex: 0x121812))
+            }
+        }
+        .padding(30)
+    }
+}
 
     // MARK: Top bar (menu / MISH. / search)
     private var topBar: some View {
