@@ -294,34 +294,57 @@ struct NowPlayingView: View {
         return t.artist + album
     }
 
+    
     private var seekBar: some View {
         VStack(spacing: 7) {
             GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(progressTrack).frame(height: 4)
-                    Capsule().fill(progressFill).frame(width: geo.size.width * progress, height: 4)
+                let barCount = player.spectrum.count
+                let barWidth: CGFloat = 3
+                let spacing: CGFloat = 2
+                let totalWidth = CGFloat(barCount) * (barWidth + spacing) - spacing
+    
+                HStack(spacing: spacing) {
+                    ForEach(0..<barCount, id: \.self) { index in
+                        let level = CGFloat(
+                            min(max(player.spectrum[index], 0), 1)
+                        )
+                        Capsule()
+                            .fill(specialMode ? Color.black : Color.white)
+                            .frame(
+                                width: barWidth,
+                                height: max(3, level * 30)
+                            )
+                    }
                 }
-                .frame(maxHeight: .infinity)
+                .frame(width: totalWidth, height: 36)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
                             scrubbing = true
-                            scrubValue = clamp01(value.location.x / max(geo.size.width, 1)) * player.duration
+                            scrubValue =
+                                clamp01(value.location.x / max(geo.size.width, 1))
+                                * player.duration
                         }
                         .onEnded { value in
-                            player.seek(to: clamp01(value.location.x / max(geo.size.width, 1)) * player.duration)
+                            player.seek(
+                                to: clamp01(value.location.x / max(geo.size.width, 1))
+                                    * player.duration
+                            )
                             scrubbing = false
                         }
                 )
             }
-            .frame(height: 24)
+            .frame(height: 36)
+    
             HStack {
                 Text(formatTime(displayTime))
                 Spacer()
                 Text(formatTime(player.duration))
             }
-            .font(.system(size: 10)).foregroundColor(secondaryText)
+            .font(.system(size: 10))
+            .foregroundColor(secondaryText)
         }
     }
 
