@@ -49,7 +49,7 @@ struct MishVisualizerView: View {
         .background(.black)
     }
 
-    // MARK: - HYPER-REACTIVE DESKTOP CALM MODE
+    // MARK: - DESKTOP CALM MODE PORT
 
     private func drawDesktopCalm(
         context: inout GraphicsContext,
@@ -62,7 +62,7 @@ struct MishVisualizerView: View {
         let calmLowBar = 90
         let calmHighBar = 470
         let calmTilt: Float = 0.5
-        let calmGain: Float = 450.0 // Cranking up the gain so loud songs SCREAM outward
+        let calmGain: Float = 450.0
         let calmMaxWave: Float = 420.0
         let calmBaseRadius: CGFloat = 200.0 * scale
         let calmAngleOffset = Double.pi / 2.0
@@ -71,9 +71,9 @@ struct MishVisualizerView: View {
         let halfPoints = points / 2
 
         func band(_ index: Int) -> Float {
-            guard spectrumCount > 0 else { return 0.05 } // Constant tiny baseline so it never freezes
+            guard spectrumCount > 0 else { return 0.05 }
             let idx = max(0, min(index, spectrumCount - 1))
-            return max(0.05, spectrum[idx]) // Guaranteed minimum activity floor
+            return max(0.05, spectrum[idx])
         }
 
         var wave = [CGFloat](repeating: 0, count: halfPoints + 1)
@@ -93,27 +93,23 @@ struct MishVisualizerView: View {
             }
             let level = sum / Float(countInRange)
             
-            // Soft-clip with higher sensitivity
             let softClipped = calmMaxWave * tanh(level * calmGain / calmMaxWave)
             wave[p] = CGFloat(softClipped) * scale
         }
 
         let bassCount = min(35, spectrumCount)
         let bassSum = bassCount > 0 ? (0..<bassCount).reduce(0.0) { $0 + Double(spectrum[$1]) } : 0.1
-        let bassIntensity = CGFloat(bassSum / Double(max(1, bassCount))) + 0.2 // Always animated
+        let bassIntensity = CGFloat(bassSum / Double(max(1, bassCount))) + 0.2
 
-        // 1. Filled Portal Mesh (with organic time-based idle throbbing)
+        // 1. Filled Portal Mesh
         var portal = Path()
         portal.move(to: center)
 
         for i in 0...points {
             let angle = Double(i) / Double(points) * 2.0 * Double.pi + calmAngleOffset
             let mirroredI = (i <= halfPoints) ? i : (points - i)
-            
-            // Organic idle wave so even quiet songs undulate wildly
             let idleMotion = sin(time * 3.0 + Double(i) * 0.2) * (12.0 + Double(bassIntensity) * 25.0)
             let breathing = sin(time * 2.0 + Double(i) * 0.15) * 6.0 * Double(scale)
-            
             let radius = calmBaseRadius + wave[mirroredI] + CGFloat(idleMotion + breathing)
 
             let point = CGPoint(
@@ -157,7 +153,7 @@ struct MishVisualizerView: View {
             lineWidth: 2.5 * scale
         )
 
-        // 3. Screaming Reactive Core
+        // 3. Reactive Core
         let coreSize = (6.0 + bassIntensity * 16.0) * scale
         let coreRect = CGRect(
             x: center.x - coreSize,
@@ -172,7 +168,7 @@ struct MishVisualizerView: View {
         )
     }
 
-    // MARK: - HYPER-REACTIVE DESKTOP CHAOS MODE
+    // MARK: - DESKTOP CHAOS MODE PORT
 
     private func drawDesktopChaos(
         context: inout GraphicsContext,
@@ -185,7 +181,7 @@ struct MishVisualizerView: View {
         func band(_ index: Int) -> CGFloat {
             guard count > 0 else { return 0.1 }
             let idx = max(0, min(index, count - 1))
-            return max(0.08, spectrum[idx]) // Guaranteed motion floor
+            return CGFloat(max(0.08, spectrum[idx]))
         }
 
         let bass = count > 0 ? (0..<min(35, count)).reduce(CGFloat.zero) { $0 + band($1) } / CGFloat(min(35, count)) : 0.2
@@ -194,7 +190,6 @@ struct MishVisualizerView: View {
         let bassPulse = max(0.3, min(1.0, bass * 4.0))
         let treblePulse = max(0.3, min(1.0, treble * 4.0))
 
-        // Force continuous high-velocity movement even on quiet tracks
         let driftX = sin(time * 1.5) * 18.0
         let driftY = cos(time * 1.8) * 18.0
         let jitterX = (Double(arc4random_uniform(1000)) / 1000.0 - 0.5) * 22.0 * Double(bass)
@@ -216,7 +211,7 @@ struct MishVisualizerView: View {
             subcontext.scaleBy(x: CGFloat(zoomFactor), y: CGFloat(zoomFactor))
             subcontext.translateBy(x: -cycloneCenter.x, y: -cycloneCenter.y)
 
-            // 1. Screaming Fracture Web
+            // 1. Geometric Fracture Web
             let pointCount = 90
             var web = Path()
             for index in 0..<pointCount {
@@ -239,7 +234,7 @@ struct MishVisualizerView: View {
             subcontext.stroke(web, with: .color(.purple.opacity(0.35)), lineWidth: 6 * scale)
             subcontext.stroke(web, with: .color(.pink.opacity(0.95)), lineWidth: 1.8 * scale)
 
-            // 2. Thumping Orbs
+            // 2. Orbiting Energy Orbs
             for orb in 0..<6 {
                 let angle = time * 1.8 + Double(orb) * 2 * Double.pi / 6
                 let magnitude = band(orb * max(1, count) / 6)
@@ -260,7 +255,7 @@ struct MishVisualizerView: View {
                 )
             }
 
-            // 3. Aggressive Neon Sparks
+            // 3. Neon Sparks
             let sparkCount = 20
             for spark in stride(from: 0, to: sparkCount, by: 2) {
                 let seed = Double(spark) * 2.39
