@@ -294,7 +294,6 @@ struct ContentView: View {
         }
         .padding(30)
     }
-}
 
     // MARK: Top bar (menu / MISH. / search)
     private var topBar: some View {
