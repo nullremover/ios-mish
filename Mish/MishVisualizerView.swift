@@ -91,13 +91,13 @@ struct MishVisualizerView: View {
         let spectrumCount = spectrum.count
         guard spectrumCount > 0 else { return }
 
-        // Tuning knobs matching desktop C++ implementation
+        // Tuning knobs matching desktop C++ implementation (fixed 'f' suffixes)
         let calmLowBar = 90
         let calmHighBar = 470
-        let calmTilt: Float = 0.5f
-        let calmGain: Float = 200.0f
-        let calmMaxWave: Float = 350.0f
-        let calmBaseRadius: CGFloat = 225.0f * scale
+        let calmTilt: Float = 0.5
+        let calmGain: Float = 200.0
+        let calmMaxWave: Float = 350.0
+        let calmBaseRadius: CGFloat = 225.0 * scale
         let calmAngleOffset = Double.pi / 2.0
 
         let points = 128
@@ -120,8 +120,8 @@ struct MishVisualizerView: View {
             var sum: Float = 0.0
             let countInRange = max(1, hi - lo + 1)
             for b in lo...hi {
-                let freq = 20.0f * pow(800.0f, Float(b) / 512.0f)
-                let tilt = pow(freq / 1000.0f, calmTilt)
+                let freq = 20.0 * pow(800.0, Float(b) / 512.0)
+                let tilt = pow(freq / 1000.0, calmTilt)
                 sum += band(b) * tilt
             }
             let level = sum / Float(countInRange)
