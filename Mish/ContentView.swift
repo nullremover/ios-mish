@@ -215,6 +215,9 @@ struct NowPlayingView: View {
     @State private var liked = false
     @State private var scrubbing = false
     @State private var scrubValue: Double = 0
+    @State private var frozenSpectrum: [Float]? = nil
+    
+    private let waveformBarCount = 72
 
     private var specialMode: Bool { player.isUnderscoresMode }
     private var mainText: Color { specialMode ? .black : .white }
@@ -296,48 +299,66 @@ struct NowPlayingView: View {
 
     
     
+    
     private var seekBar: some View {
         VStack(spacing: 7) {
             GeometryReader { geo in
-                let barCount = player.spectrum.count
-                let barWidth: CGFloat = 3
-                let spacing: CGFloat = 2
-                let totalWidth = CGFloat(barCount) * (barWidth + spacing) - spacing
-    
-                HStack(spacing: spacing) {
-                    ForEach(0..<barCount, id: \.self) { index in
-                        let level = CGFloat(
-                            min(max(player.spectrum[index], 0), 1)
-                        )
+                HStack(spacing: 2) {
+                    ForEach(0..<waveformBarCount, id: \.self) { index in
                         Capsule()
-                            .fill(specialMode ? Color.black : Color.white)
+                            .fill(Color.white.opacity(0.72))
+                            .frame(maxWidth: .infinity)
                             .frame(
-                                width: barWidth,
-                                height: max(3, level * 30)
+                                height: waveformBarHeight(
+                                    at: index,
+                                    maxHeight: geo.size.height
+                                )
                             )
                     }
                 }
-                .frame(width: totalWidth, height: 36)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .leading) {
+                    // The playhead is independent of the bar heights.
+                    Capsule()
+                        .fill(progressFill)
+                        .frame(width: 2, height: geo.size.height)
+                        .offset(
+                            x: min(
+                                max(geo.size.width * progress, 0),
+                                max(geo.size.width - 2, 0)
+                            )
+                        )
+                }
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { value in
+                            // Freeze the displayed spectrum on the first drag event.
+                            if !scrubbing {
+                                frozenSpectrum = player.spectrum
+                            }
+    
                             scrubbing = true
-                            scrubValue =
-                                clamp01(value.location.x / max(geo.size.width, 1))
-                                * player.duration
+    
+                            let fraction = clamp01(
+                                value.location.x / max(geo.size.width, 1)
+                            )
+    
+                            scrubValue = fraction * player.duration
                         }
                         .onEnded { value in
-                            player.seek(
-                                to: clamp01(value.location.x / max(geo.size.width, 1))
-                                    * player.duration
+                            let fraction = clamp01(
+                                value.location.x / max(geo.size.width, 1)
                             )
+    
+                            player.seek(to: fraction * player.duration)
+    
                             scrubbing = false
+                            frozenSpectrum = nil
                         }
                 )
             }
-            .frame(height: 36)
+            .frame(height: 40)
     
             HStack {
                 Text(formatTime(displayTime))
@@ -347,6 +368,36 @@ struct NowPlayingView: View {
             .font(.system(size: 10))
             .foregroundColor(secondaryText)
         }
+    }
+    
+    private var displayedSpectrum: [Float] {
+        if scrubbing, let frozenSpectrum {
+            return frozenSpectrum
+        }
+    
+        return player.spectrum
+    }
+    
+    private func waveformBarHeight(
+        at index: Int,
+        maxHeight: CGFloat
+    ) -> CGFloat {
+        let spectrum = displayedSpectrum
+    
+        guard !spectrum.isEmpty else {
+            return 3
+        }
+    
+        let sourceIndex = min(
+            spectrum.count - 1,
+            index * spectrum.count / waveformBarCount
+        )
+    
+        let magnitude = CGFloat(
+            min(1, max(0, spectrum[sourceIndex]))
+        )
+    
+        return 3 + magnitude * max(0, maxHeight - 3)
     }
 
 
