@@ -75,7 +75,6 @@ struct ContentView: View {
     private var albumBlurRadius = 55.0
     @StateObject private var lyricsModel = LyricsModel()
     var onShowLyrics: () -> Void = {}
-    @EnvironmentObject var lyricsModel: LyricsModel
 
 @State private var showBackgroundSettings = false
 
