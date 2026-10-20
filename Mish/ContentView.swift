@@ -23,8 +23,11 @@ func formatTime(_ t: TimeInterval) -> String {
 
 enum MishTab { case library, playing, queue }
 
+
 private struct AlbumArtBackground: View {
     let artwork: UIImage?
+    let blurRadius: Double
+    let blurEnabled: Bool
 
     var body: some View {
         GeometryReader { geometry in
@@ -40,7 +43,7 @@ private struct AlbumArtBackground: View {
                             height: geometry.size.height
                         )
                         .clipped()
-                        .blur(radius: 10)
+                        .blur(radius: blurEnabled ? blurRadius : 0)
                         .overlay {
                             Color.black.opacity(0.48)
                         }
@@ -57,6 +60,7 @@ private struct AlbumArtBackground: View {
     }
 }
 
+
 // MARK: - Root
 struct ContentView: View {
     @EnvironmentObject var player: PlayerModel
@@ -65,6 +69,12 @@ struct ContentView: View {
     @State private var importFolder = true
     @State private var chaos = false
     @State private var showPlaylists = false
+    @AppStorage("mishAlbumBlurEnabled")
+    private var albumBlurEnabled = true
+    @AppStorage("mishAlbumBlurRadius")
+    private var albumBlurRadius = 55.0
+
+@State private var showBackgroundSettings = false
 
     private var specialMode: Bool { player.isUnderscoresMode }
 
@@ -114,6 +124,7 @@ struct ContentView: View {
                     .id(player.currentTrack?.url)
                 }
                 
+                
             VStack(spacing: 0) {
                 topBar
 
@@ -157,6 +168,9 @@ struct ContentView: View {
                 .environmentObject(player)
                 .preferredColorScheme(.dark)
         }
+        .sheet(isPresented: $showBackgroundSettings) {
+            BackgroundSettingsView()
+        }
     }
 
     // MARK: Top bar
@@ -172,7 +186,14 @@ struct ContentView: View {
                     importFolder = false
                     showImporter = true
                 }
-
+                Button {
+                    showBackgroundSettings = true
+                } label: {
+                    Label(
+                        "Background Settings",
+                        systemImage: "slider.horizontal.3"
+                    )
+                }
                 Divider()
 
                 Button {
