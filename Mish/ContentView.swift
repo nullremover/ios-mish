@@ -21,7 +21,7 @@ func formatTime(_ t: TimeInterval) -> String {
 }
 
 
-enum MishTab { case library, playing, queue }
+enum MishTab { case library, playing, queue, lyrics }
 
 
 private struct AlbumArtBackground: View {
@@ -73,6 +73,9 @@ struct ContentView: View {
     private var albumBlurEnabled = true
     @AppStorage("mishAlbumBlurRadius")
     private var albumBlurRadius = 55.0
+    @StateObject private var lyricsModel = LyricsModel()
+    var onShowLyrics: () -> Void = {}
+    @EnvironmentObject var lyricsModel: LyricsModel
 
 @State private var showBackgroundSettings = false
 
@@ -134,11 +137,17 @@ struct ContentView: View {
                     } else {
                         switch tab {
                         case .playing:
-                            NowPlayingView()
+                            NowPlayingView(
+                                onShowLyrics: { tab = .lyrics }
+                            )
+                            .environmentObject(lyricsModel)
                         case .library:
                             libraryList
                         case .queue:
                             queueList
+                        case .lyrics:
+                            LyricsView()
+                            .environmentObject(lyricsModel)
                         }
                     }
                 }
@@ -170,6 +179,17 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showBackgroundSettings) {
             BackgroundSettingsView()
+        }
+        .task(id: player.currentTrack?.url) {
+            guard let track = player.currentTrack else {
+                lyricsModel.clear()
+                return
+            }
+        
+            await lyricsModel.load(
+                artist: track.artist,
+                title: track.title
+            )
         }
     }
 
@@ -243,6 +263,7 @@ struct ContentView: View {
             navItem("Library", icon: "music.note.list", for: .library)
             navItem("Playing", icon: "music.note", for: .playing)
             navItem("Queue", icon: "list.bullet", for: .queue)
+            navItem("Lyrics", icon: "text.quote", for: .lyrics)
         }
         .padding(.top, 8)
         .overlay(
@@ -379,6 +400,7 @@ struct NowPlayingView: View {
                 trackInfo
                 seekBar
                 controls
+                lyricsPreview
                 upNext
             }
             .padding(.horizontal, 20)
@@ -439,9 +461,55 @@ struct NowPlayingView: View {
         let album = t.album == "Unknown Album" ? "" : " · " + t.album
         return t.artist + album
     }
-
     
     
+    private var lyricsPreview: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("LYRICS")
+                    .font(.system(size: 10, weight: .heavy))
+                    .tracking(2)
+    
+                Spacer()
+    
+                Button(action: onShowLyrics) {
+                    Label(
+                        "View all",
+                        systemImage: "arrow.up.right"
+                    )
+                    .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.plain)
+            }
+    
+            if let lyrics = lyricsModel.lyrics {
+                Text(lyrics)
+                    .font(.system(size: 14, weight: .medium))
+                    .lineSpacing(5)
+                    .lineLimit(4)
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+            } else if lyricsModel.isLoading {
+                ProgressView("Finding lyrics…")
+                    .font(.system(size: 12))
+            } else {
+                Text(
+                    lyricsModel.errorMessage
+                        ?? "Lyrics will appear here."
+                )
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(15)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            Color.white.opacity(specialMode ? 0.12 : 0.07),
+            in: RoundedRectangle(cornerRadius: 16)
+        )
+    }
     
     private var seekBar: some View {
         VStack(spacing: 7) {
