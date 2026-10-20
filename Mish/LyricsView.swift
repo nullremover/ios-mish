@@ -36,7 +36,7 @@ struct LyricsView: View {
                         .lineSpacing(9)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled))
+                        .textSelection(.enabled)
 
                 } else {
                     VStack(spacing: 12) {
