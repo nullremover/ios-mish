@@ -11,15 +11,14 @@ struct PlaylistsView: View {
         NavigationStack {
             Group {
                 if player.playlists.isEmpty {
-                    ContentUnavailableView {
-                        Label("No Playlists Yet", systemImage: "music.note.list")
-                    } description: {
-                        Text("Create a playlist and collect your favorite tracks.")
-                    } actions: {
-                        Button("Create Playlist") {
-                            showingCreatePlaylist = true
-                        }
-                        .buttonStyle(.borderedProminent)
+                    PlaylistEmptyState(
+                        title: "No Playlists Yet",
+                        systemImage: "music.note.list",
+                        message: "Create a playlist and collect your favorite tracks.",
+                        buttonTitle: "Create Playlist"
+                    ) {
+                        newPlaylistName = ""
+                        showingCreatePlaylist = true
                     }
                 } else {
                     List {
@@ -63,7 +62,7 @@ struct PlaylistsView: View {
             }
             .navigationTitle("Playlists")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         newPlaylistName = ""
                         showingCreatePlaylist = true
@@ -77,7 +76,16 @@ struct PlaylistsView: View {
                 TextField("Playlist name", text: $newPlaylistName)
 
                 Button("Create") {
-                    player.createPlaylist(name: newPlaylistName)
+                    let name = newPlaylistName.trimmingCharacters(
+                        in: .whitespacesAndNewlines
+                    )
+
+                    guard !name.isEmpty else {
+                        newPlaylistName = ""
+                        return
+                    }
+
+                    player.createPlaylist(name: name)
                     newPlaylistName = ""
                 }
 
@@ -107,12 +115,10 @@ private struct PlaylistDetailView: View {
             if let playlist {
                 List {
                     if playlist.trackPaths.isEmpty {
-                        ContentUnavailableView(
-                            "No Tracks Yet",
+                        PlaylistEmptyState(
+                            title: "No Tracks Yet",
                             systemImage: "music.note",
-                            description: Text(
-                                "Tap + to add music from your library."
-                            )
+                            message: "Tap + to add music from your library."
                         )
                     } else {
                         ForEach(
@@ -133,7 +139,7 @@ private struct PlaylistDetailView: View {
                 .listStyle(.plain)
                 .navigationTitle(playlist.name)
                 .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItem(placement: .navigationBarTrailing) {
                         Button {
                             showingAddTracks = true
                         } label: {
@@ -142,7 +148,7 @@ private struct PlaylistDetailView: View {
                         .accessibilityLabel("Add Tracks")
                     }
 
-                    ToolbarItem(placement: .topBarTrailing) {
+                    ToolbarItem(placement: .navigationBarTrailing) {
                         EditButton()
                     }
                 }
@@ -151,9 +157,10 @@ private struct PlaylistDetailView: View {
                         .environmentObject(player)
                 }
             } else {
-                ContentUnavailableView(
-                    "Playlist Not Found",
-                    systemImage: "music.note.list"
+                PlaylistEmptyState(
+                    title: "Playlist Not Found",
+                    systemImage: "music.note.list",
+                    message: "This playlist may have been deleted."
                 )
             }
         }
@@ -181,8 +188,12 @@ private struct PlaylistDetailView: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(track?.title ?? URL(string: path)?.lastPathComponent ?? path)
-                    .lineLimit(1)
+                Text(
+                    track?.title
+                        ?? URL(string: path)?.lastPathComponent
+                        ?? path
+                )
+                .lineLimit(1)
 
                 Text(track?.artist ?? "File unavailable in library")
                     .font(.caption)
@@ -226,12 +237,10 @@ private struct AddTracksView: View {
         NavigationStack {
             List {
                 if player.tracks.isEmpty {
-                    ContentUnavailableView(
-                        "Library Is Empty",
+                    PlaylistEmptyState(
+                        title: "Library Is Empty",
                         systemImage: "music.note",
-                        description: Text(
-                            "Import music into Mish before adding tracks."
-                        )
+                        message: "Import music into Mish before adding tracks."
                     )
                 } else {
                     ForEach(player.tracks) { track in
@@ -296,12 +305,43 @@ private struct AddTracksView: View {
             .navigationTitle("Add Tracks")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
                         dismiss()
                     }
                 }
             }
         }
+    }
+}
+
+private struct PlaylistEmptyState: View {
+    let title: String
+    let systemImage: String
+    let message: String
+    var buttonTitle: String? = nil
+    var action: (() -> Void)? = nil
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.system(size: 42))
+                .foregroundStyle(.secondary)
+
+            Text(title)
+                .font(.title3.bold())
+
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            if let buttonTitle, let action {
+                Button(buttonTitle, action: action)
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(30)
     }
 }
