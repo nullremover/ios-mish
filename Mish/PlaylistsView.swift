@@ -185,36 +185,48 @@ private struct PlaylistDetailView: View {
         }
 
         HStack(spacing: 12) {
-            if let track, let artwork = track.artwork {
-                Image(uiImage: artwork)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-            } else {
-                Image(systemName: "music.note")
-                    .font(.title3)
-                    .frame(width: 44, height: 44)
-                    .background(Color.secondary.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(
-                    track?.title
-                        ?? URL(string: path)?.lastPathComponent
-                        ?? path
+            Button {
+                player.playPlaylist(
+                    id: playlistID,
+                    startingAt: path
                 )
-                .lineLimit(1)
-
-                Text(track?.artist ?? "File unavailable in library")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+            } label: {
+                HStack(spacing: 12) {
+                    if let track, let artwork = track.artwork {
+                        Image(uiImage: artwork)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 44, height: 44)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    } else {
+                        Image(systemName: "music.note")
+                            .font(.title3)
+                            .frame(width: 44, height: 44)
+                            .background(Color.secondary.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+        
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(
+                            track?.title
+                                ?? URL(string: path)?.lastPathComponent
+                                ?? path
+                        )
+                        .lineLimit(1)
+        
+                        Text(track?.artist ?? "File unavailable in library")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+        
+                    Spacer(minLength: 4)
+                }
+                .contentShape(Rectangle())
             }
-
-            Spacer(minLength: 4)
-
+            .buttonStyle(.plain)
+            .disabled(track == nil)
+        
             Button(role: .destructive) {
                 player.removeFromPlaylist(id: playlistID, at: index)
             } label: {
