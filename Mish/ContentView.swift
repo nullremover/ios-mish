@@ -40,7 +40,7 @@ private struct AlbumArtBackground: View {
                             height: geometry.size.height
                         )
                         .clipped()
-                        .blur(radius: 55)
+                        .blur(radius: 35)
                         .overlay {
                             Color.black.opacity(0.48)
                         }
