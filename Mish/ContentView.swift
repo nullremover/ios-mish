@@ -107,16 +107,13 @@ struct ContentView: View {
                     .ignoresSafeArea()
                 } else {
                     AlbumArtBackground(
-                        artwork: player.currentTrack?.artwork
+                        artwork: player.currentTrack?.artwork,
+                        blurRadius: albumBlurRadius,
+                        blurEnabled: albumBlurEnabled
                     )
                     .id(player.currentTrack?.url)
-                    .animation(
-                        .easeInOut(duration: 0.5),
-                        value: player.currentTrack?.url
-                    )
                 }
-
-
+                
             VStack(spacing: 0) {
                 topBar
 
@@ -622,6 +619,8 @@ struct TrackRow: View {
     }
 }
 
+
+
 struct TrackList: View {
     @EnvironmentObject var player: PlayerModel
     let tracks: [Track]
@@ -691,5 +690,59 @@ struct TrackList: View {
             .padding(.vertical, 12)
         }
         .foregroundStyle(specialMode ? Color.black : Color.white)
+    }
+}
+
+
+private struct BackgroundSettingsView: View {
+    @AppStorage("mishAlbumBlurEnabled")
+    private var blurEnabled = true
+
+    @AppStorage("mishAlbumBlurRadius")
+    private var blurRadius = 55.0
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Album Artwork") {
+                    Toggle("Blurred Background", isOn: $blurEnabled)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Blur Radius")
+                            Spacer()
+                            Text("\(Int(blurRadius))")
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Slider(
+                            value: $blurRadius,
+                            in: 0...100,
+                            step: 1
+                        )
+                        .disabled(!blurEnabled)
+
+                        HStack {
+                            Text("Sharp")
+                            Spacer()
+                            Text("Dreamy")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+
+                Section {
+                    Button("Reset to Default") {
+                        blurEnabled = true
+                        blurRadius = 55
+                    }
+                }
+            }
+            .navigationTitle("Background")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .preferredColorScheme(.dark)
     }
 }
