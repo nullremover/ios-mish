@@ -89,6 +89,17 @@ struct ContentView: View {
         }
         return UIImage(contentsOfFile: url.path)
     }
+    
+    private static var janeRemoverBackground: UIImage? {
+    guard let url = Bundle.main.url(
+        forResource: "IMG_0465",
+        withExtension: "jpg",
+    ) else {
+        return nil
+    }
+
+    return UIImage(contentsOfFile: url.path)
+}
 
     private var importTypes: [UTType] {
         importFolder
@@ -114,17 +125,39 @@ struct ContentView: View {
                     }
                 }
                 .ignoresSafeArea()
-
+            
                 Color.white.opacity(0.16)
                     .ignoresSafeArea()
-                } else {
-                    AlbumArtBackground(
-                        artwork: player.currentTrack?.artwork,
-                        blurRadius: albumBlurRadius,
-                        blurEnabled: albumBlurEnabled
-                    )
-                    .id(player.currentTrack?.url)
+            
+            } else if player.isJaneRemoverMode {
+                GeometryReader { geometry in
+                    if let image = Self.janeRemoverBackground {
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(
+                                width: geometry.size.width,
+                                height: geometry.size.height
+                            )
+                            .clipped()
+                    } else {
+                        Color(hex: 0x101014)
+                    }
                 }
+                .ignoresSafeArea()
+            
+                Color.black.opacity(0.20)
+                    .ignoresSafeArea()
+            
+            } else {
+                AlbumArtBackground(
+                    artwork: player.currentTrack?.artwork,
+                    blurRadius: albumBlurRadius,
+                    blurEnabled: albumBlurEnabled
+                )
+                .id(player.currentTrack?.url)
+            }
+
                 
                 
             VStack(spacing: 0) {
