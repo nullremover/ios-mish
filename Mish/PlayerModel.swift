@@ -49,6 +49,15 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         return artist.trimmingCharacters(in: .whitespacesAndNewlines)
             .caseInsensitiveCompare("underscores") == .orderedSame
     }
+    var isJaneRemoverMode: Bool {
+    guard hasActivePlayback,
+          let artist = currentTrack?.artist else {
+        return false
+    }
+    return artist.trimmingCharacters(
+        in: .whitespacesAndNewlines
+    ).caseInsensitiveCompare("Jane Remover") == .orderedSame
+}
 
     // MARK: - Private state
     private var player: AVAudioPlayer?
