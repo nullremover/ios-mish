@@ -23,6 +23,40 @@ func formatTime(_ t: TimeInterval) -> String {
 
 enum MishTab { case library, playing, queue }
 
+private struct AlbumArtBackground: View {
+    let artwork: UIImage?
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                Color(hex: 0x101014)
+
+                if let artwork {
+                    Image(uiImage: artwork)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(
+                            width: geometry.size.width,
+                            height: geometry.size.height
+                        )
+                        .clipped()
+                        .blur(radius: 55)
+                        .overlay {
+                            Color.black.opacity(0.48)
+                        }
+                        .transition(.opacity)
+                }
+            }
+            .frame(
+                width: geometry.size.width,
+                height: geometry.size.height
+            )
+            .clipped()
+        }
+        .ignoresSafeArea()
+    }
+}
+
 // MARK: - Root
 struct ContentView: View {
     @EnvironmentObject var player: PlayerModel
@@ -71,13 +105,17 @@ struct ContentView: View {
 
                 Color.white.opacity(0.16)
                     .ignoresSafeArea()
-            } else {
-                MishVisualizerView(
-                    spectrum: player.spectrum,
-                    chaos: chaos
-                )
-                .ignoresSafeArea()
-            }
+                } else {
+                    AlbumArtBackground(
+                        artwork: player.currentTrack?.artwork
+                    )
+                    .id(player.currentTrack?.url)
+                    .animation(
+                        .easeInOut(duration: 0.5),
+                        value: player.currentTrack?.url
+                    )
+                }
+
 
             VStack(spacing: 0) {
                 topBar
