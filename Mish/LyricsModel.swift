@@ -86,10 +86,10 @@ final class LyricsModel: ObservableObject {
                 from: data
             )
 
-            let cleaned = result.lyrics.trimmingCharacters(
-                in: .whitespacesAndNewlines
-            )
-
+            
+            let cleaned = Self.formatLyrics(result.lyrics)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            
             if cleaned.isEmpty {
                 errorMessage = "No lyrics available for this song."
             } else {
@@ -104,6 +104,38 @@ final class LyricsModel: ObservableObject {
 
             errorMessage = "Couldn't load lyrics. Check your connection."
         }
+    }
+    
+    
+    private static func formatLyrics(_ text: String) -> String {
+        let normalized = text
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+            .replacingOccurrences(of: "\u{2028}", with: "\n")
+            .replacingOccurrences(of: "\u{2029}", with: "\n")
+            .replacingOccurrences(of: "\u{00A0}", with: " ")
+    
+        let lines = normalized.components(separatedBy: "\n")
+            .map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
+    
+        var formatted: [String] = []
+        var previousLineWasEmpty = false
+    
+        for line in lines {
+            let isEmpty = line.isEmpty
+    
+            // Keep verse breaks, but remove excessive blank lines.
+            if isEmpty && previousLineWasEmpty {
+                continue
+            }
+    
+            formatted.append(line)
+            previousLineWasEmpty = isEmpty
+        }
+    
+        return formatted.joined(separator: "\n")
     }
 }
 
