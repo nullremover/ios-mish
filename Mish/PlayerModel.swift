@@ -54,6 +54,8 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var player: AVAudioPlayer?
     private let audioSampler = MishAudioSampler()
     private var order: [Int] = []
+    /// When non-nil, playback is restricted to this playlist's tracks.
+    private var activePlaylistURLs: [String]? = nil
     private var orderPos = 0
     private var timer: Timer?
     private var roots: [URL] = []
@@ -439,42 +441,116 @@ func addToPlaylist(id: UUID, track: Track) {
     }
 
     // MARK: - Order (shuffle)
-    private func rebuildOrder() {
-        let all = Array(tracks.indices)
-        if shuffleOn {
-            var rest = all.filter { $0 != currentIndex }
-            rest.shuffle()
-            order = (currentIndex.map { [$0] } ?? []) + rest
-            orderPos = 0
-        } else {
-            order = all
-            orderPos = currentIndex ?? 0
+    private func rebuildOrder(startingWith preferredFirst: Int? = nil) {
+    let all: [Int]
+
+    if let playlistURLs = activePlaylistURLs {
+        all = playlistURLs.compactMap { path in
+            tracks.firstIndex { trackKey($0.url) == path }
         }
-        objectWillChange.send()
+    } else {
+        all = Array(tracks.indices)
     }
 
+    let anchor = preferredFirst.flatMap {
+        all.contains($0) ? $0 : nil
+    } ?? currentIndex.flatMap {
+        all.contains($0) ? $0 : nil
+    }
+
+    if shuffleOn {
+        var rest = all.filter { $0 != anchor }
+        rest.shuffle()
+
+        order = (anchor.map { [$0] } ?? []) + rest
+        orderPos = 0
+    } else {
+        order = all
+        orderPos = anchor.flatMap {
+            all.firstIndex(of: $0)
+        } ?? 0
+    }
+
+    objectWillChange.send()
+}
+
     // MARK: - Playback
+    func playPlaylist(id: UUID, startingAt path: String? = nil) {
+    guard let playlist = playlists.first(where: {
+        $0.id == id
+    }) else {
+        return
+    }
+
+    // Skip playlist entries that aren't available in the library.
+    let availablePaths = playlist.trackPaths.filter { path in
+        tracks.contains { trackKey($0.url) == path }
+    }
+
+    guard !availablePaths.isEmpty else {
+        return
+    }
+
+    activePlaylistURLs = availablePaths
+
+    let selectedPath = path.flatMap { requested in
+        availablePaths.contains(requested) ? requested : nil
+    } ?? availablePaths[0]
+
+    guard let index = tracks.firstIndex(where: {
+        trackKey($0.url) == selectedPath
+    }) else {
+        return
+    }
+
+    rebuildOrder(startingWith: index)
+    startTrack(at: index)
+}
     func play(index: Int) {
+    guard tracks.indices.contains(index) else { return }
+
+    // Selecting a track from the library exits playlist mode.
+    activePlaylistURLs = nil
+    rebuildOrder(startingWith: index)
+
+    startTrack(at: index)
+}
+
+    private func startTrack(at index: Int) {
         guard tracks.indices.contains(index) else { return }
+    
         queueExcludedURLs.remove(trackKey(tracks[index].url))
+    
         do {
             let p = try AVAudioPlayer(contentsOf: tracks[index].url)
             p.delegate = self
             p.prepareToPlay()
-            p.play()
+    
+            guard p.play() else {
+                print("Could not start playback: \(tracks[index].url)")
+                return
+            }
+    
             player = p
             currentIndex = index
-            if let pos = order.firstIndex(of: index) { orderPos = pos }
+    
+            if let pos = order.firstIndex(of: index) {
+                orderPos = pos
+            }
+    
             isPlaying = true
             hasActivePlayback = true
             currentTime = 0
+    
             startTimer()
             updateNowPlaying()
         } catch {
-            print("Could not play \(tracks[index].url.lastPathComponent): \(error)")
+            print(
+                "Could not play \(tracks[index].url.lastPathComponent): \(error)"
+            )
         }
     }
-
+    
     func togglePlay() { isPlaying ? pause() : resume() }
 
     func resume() {
@@ -516,7 +592,7 @@ func addToPlaylist(id: UUID, track: Track) {
             let track = tracks[index]
             if !queueExcludedURLs.contains(trackKey(track.url)) {
                 orderPos = pos
-                play(index: index)
+                startTrack(at: index)
                 return
             }
         }
@@ -540,7 +616,7 @@ func addToPlaylist(id: UUID, track: Track) {
             let track = tracks[index]
             if !queueExcludedURLs.contains(trackKey(track.url)) {
                 orderPos = pos
-                play(index: index)
+                startTrack(at: index)
                 return
             }
             if pos == 0 && repeatMode != .all { break }
@@ -592,7 +668,7 @@ func addToPlaylist(id: UUID, track: Track) {
         DispatchQueue.main.async {
             guard flag else { return }
             if self.repeatMode == .one, let i = self.currentIndex {
-                self.play(index: i)
+                self.startTrack(at: i)
             } else {
                 self.next()
             }
