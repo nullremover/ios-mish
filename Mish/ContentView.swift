@@ -375,11 +375,12 @@ struct ContentView: View {
 // MARK: - Now playing screen
 struct NowPlayingView: View {
     @EnvironmentObject var player: PlayerModel
+    @EnvironmentObject var lyricsModel: LyricsModel
+    var onShowLyrics: () -> Void = {}
     @State private var liked = false
     @State private var scrubbing = false
     @State private var scrubValue: Double = 0
     @State private var frozenSpectrum: [Float]? = nil
-    var onShowLyrics: () -> Void = {}
     
     private let waveformBarCount = 72
 
