@@ -2,9 +2,16 @@
 import Foundation
 import Combine
 
+struct LyricLine: Identifiable, Equatable {
+    let id: Int
+    let time: TimeInterval
+    let text: String
+}
+
 @MainActor
 final class LyricsModel: ObservableObject {
     @Published private(set) var lyrics: String?
+    @Published private(set) var syncedLines: [LyricLine] = []
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
 
@@ -15,6 +22,7 @@ final class LyricsModel: ObservableObject {
         requestID = UUID()
         currentKey = nil
         lyrics = nil
+        syncedLines = []
         errorMessage = nil
         isLoading = false
     }
@@ -36,16 +44,13 @@ final class LyricsModel: ObservableObject {
         }
 
         let key = "\(artist.lowercased())|\(title.lowercased())"
-
-        if currentKey == key {
-            return
-        }
+        if currentKey == key { return }
 
         currentKey = key
         let id = UUID()
         requestID = id
-
         lyrics = nil
+        syncedLines = []
         errorMessage = nil
         isLoading = true
 
@@ -56,17 +61,25 @@ final class LyricsModel: ObservableObject {
         }
 
         do {
-            var url = URL(
-                string: "https://api.lyrics.ovh/v1/"
+            var components = URLComponents(
+                string: "https://lrclib.net/api/get"
             )!
-            url.appendPathComponent(artist)
-            url.appendPathComponent(title)
+
+            components.queryItems = [
+                URLQueryItem(name: "artist_name", value: artist),
+                URLQueryItem(name: "track_name", value: title)
+            ]
+
+            guard let url = components.url else {
+                errorMessage = "Couldn't create the lyrics request."
+                return
+            }
 
             var request = URLRequest(url: url)
             request.timeoutInterval = 15
             request.setValue(
-                "application/json",
-                forHTTPHeaderField: "Accept"
+                "Mish iOS Music Player",
+                forHTTPHeaderField: "User-Agent"
             )
 
             let (data, response) = try await URLSession.shared.data(
@@ -75,8 +88,8 @@ final class LyricsModel: ObservableObject {
 
             guard requestID == id else { return }
 
-            guard let response = response as? HTTPURLResponse,
-                  (200...299).contains(response.statusCode) else {
+            guard let http = response as? HTTPURLResponse,
+                  (200...299).contains(http.statusCode) else {
                 errorMessage = "Lyrics weren't found for this song."
                 return
             }
@@ -86,59 +99,91 @@ final class LyricsModel: ObservableObject {
                 from: data
             )
 
-            
-            let cleaned = Self.formatLyrics(result.lyrics)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            
-            if cleaned.isEmpty {
-                errorMessage = "No lyrics available for this song."
-            } else {
-                lyrics = cleaned
+            let timedLines = Self.parseLRC(
+                result.syncedLyrics ?? ""
+            )
+
+            syncedLines = timedLines
+            lyrics = result.plainLyrics
+                ?? timedLines.map(\.text).joined(separator: "\n")
+
+            if lyrics?.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            ).isEmpty == true {
+                lyrics = nil
+            }
+
+            if timedLines.isEmpty {
+                errorMessage = lyrics == nil
+                    ? "No lyrics available for this song."
+                    : "Lyrics found, but synced timing isn't available."
             }
         } catch {
             guard requestID == id else { return }
-
-            if (error as? URLError)?.code == .cancelled {
-                return
-            }
-
             errorMessage = "Couldn't load lyrics. Check your connection."
         }
     }
-    
-    
-    private static func formatLyrics(_ text: String) -> String {
-        let normalized = text
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-            .replacingOccurrences(of: "\u{2028}", with: "\n")
-            .replacingOccurrences(of: "\u{2029}", with: "\n")
-            .replacingOccurrences(of: "\u{00A0}", with: " ")
-    
-        let lines = normalized.components(separatedBy: "\n")
-            .map {
-                $0.trimmingCharacters(in: .whitespaces)
-            }
-    
-        var formatted: [String] = []
-        var previousLineWasEmpty = false
-    
-        for line in lines {
-            let isEmpty = line.isEmpty
-    
-            // Keep verse breaks, but remove excessive blank lines.
-            if isEmpty && previousLineWasEmpty {
-                continue
-            }
-    
-            formatted.append(line)
-            previousLineWasEmpty = isEmpty
+
+    private static func parseLRC(_ input: String) -> [LyricLine] {
+        let pattern = #"\[(\d{1,2}):(\d{2})(?:\.(\d+))?\]\s*(.*)"#
+
+        guard let regex = try? NSRegularExpression(
+            pattern: pattern
+        ) else {
+            return []
         }
-    
-        return formatted.joined(separator: "\n")
+
+        var lines: [LyricLine] = []
+
+        for rawLine in input.components(separatedBy: .newlines) {
+            let range = NSRange(
+                rawLine.startIndex..<rawLine.endIndex,
+                in: rawLine
+            )
+
+            for match in regex.matches(
+                in: rawLine,
+                range: range
+            ) {
+                guard let minutesRange = Range(
+                    match.range(at: 1), in: rawLine
+                ),
+                let secondsRange = Range(
+                    match.range(at: 2), in: rawLine
+                ),
+                let minutes = Double(rawLine[minutesRange]),
+                let seconds = Double(rawLine[secondsRange]),
+                let textRange = Range(
+                    match.range(at: 4), in: rawLine
+                ) else {
+                    continue
+                }
+
+                var fraction = 0.0
+                if let fractionRange = Range(
+                    match.range(at: 3), in: rawLine
+                ) {
+                    let digits = String(rawLine[fractionRange])
+                    fraction = (Double("0." + digits) ?? 0)
+                }
+
+                let timestamp = minutes * 60 + seconds + fraction
+
+                lines.append(
+                    LyricLine(
+                        id: lines.count,
+                        time: timestamp,
+                        text: String(rawLine[textRange])
+                    )
+                )
+            }
+        }
+
+        return lines.sorted { $0.time < $1.time }
     }
 }
 
 private struct LyricsResponse: Decodable {
-    let lyrics: String
+    let plainLyrics: String?
+    let syncedLyrics: String?
 }
