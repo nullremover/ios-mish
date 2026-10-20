@@ -121,18 +121,30 @@ private struct PlaylistDetailView: View {
                             message: "Tap + to add music from your library."
                         )
                     } else {
-                        ForEach(
-                            Array(playlist.trackPaths.enumerated()),
-                            id: \.offset
-                        ) { index, path in
-                            trackRow(path: path, index: index)
-                        }
-                        .onMove { source, destination in
-                            player.reorderPlaylist(
-                                id: playlistID,
-                                from: source,
-                                to: destination
-                            )
+                        Section {
+                            Button {
+                                player.playPlaylist(id: playlistID)
+                            } label: {
+                                Label("Play All", systemImage: "play.fill")
+                                    .font(.headline)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, 6)
+                            }
+                            .buttonStyle(.plain)
+                    
+                            ForEach(
+                                Array(playlist.trackPaths.enumerated()),
+                                id: \.offset
+                            ) { index, path in
+                                trackRow(path: path, index: index)
+                            }
+                            .onMove { source, destination in
+                                player.reorderPlaylist(
+                                    id: playlistID,
+                                    from: source,
+                                    to: destination
+                                )
+                            }
                         }
                     }
                 }
