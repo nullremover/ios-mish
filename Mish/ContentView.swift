@@ -74,7 +74,7 @@ struct ContentView: View {
     @AppStorage("mishAlbumBlurRadius")
     private var albumBlurRadius = 55.0
     @StateObject private var lyricsModel = LyricsModel()
-    var onShowLyrics: () -> Void = {}
+    
 
 @State private var showBackgroundSettings = false
 
@@ -379,6 +379,7 @@ struct NowPlayingView: View {
     @State private var scrubbing = false
     @State private var scrubValue: Double = 0
     @State private var frozenSpectrum: [Float]? = nil
+    var onShowLyrics: () -> Void = {}
     
     private let waveformBarCount = 72
 
