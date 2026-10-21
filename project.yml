@@ -5,7 +5,7 @@ name: Mish
 options:
   bundleIdPrefix: dev.mish
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "11.0"
 
 settings:
   base:
