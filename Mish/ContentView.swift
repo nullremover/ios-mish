@@ -816,6 +816,22 @@ struct TrackList: View {
     }
 }
 
+struct NavContainer<Content: View>: View {
+    private let content: Content
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        if #available(iOS 16.0, *) {
+            NavigationStack { content }
+        } else {
+            NavigationView { content }
+                .navigationViewStyle(.stack)
+        }
+    }
+}
+
 
 private struct BackgroundSettingsView: View {
     @AppStorage("mishAlbumBlurEnabled")
@@ -825,7 +841,7 @@ private struct BackgroundSettingsView: View {
     private var blurRadius = 55.0
 
     var body: some View {
-        NavigationStack {
+        NavContainer {
             Form {
                 Section("Album Artwork") {
                     Toggle("Blurred Background", isOn: $blurEnabled)
