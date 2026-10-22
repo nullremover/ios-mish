@@ -3,7 +3,6 @@ import SwiftUI
 
 struct MishLaunchFlow: View {
     @EnvironmentObject private var player: PlayerModel
-
     @State private var introFinished = false
 
     var body: some View {
@@ -32,33 +31,46 @@ private struct MishLogoIntro: View {
     let onFinished: () -> Void
 
     @State private var logoVisible = false
-    @State private var dotDetached = false
+    @State private var detached = false
+    @State private var orbitReady = false
     @State private var orbiting = false
-    @State private var dotReturned = false
+    @State private var orbitProgress: CGFloat = 0
+    @State private var returning = false
 
     var body: some View {
         GeometryReader { geometry in
-            let logoWidth = min(geometry.size.width * 0.82, 420)
+            let fontSize = min(geometry.size.width * 0.25, 112)
+            let dotSize = fontSize * 0.075
+            let orbitRadius = fontSize * 1.12
+            let centerShift = fontSize * 0.22
 
             ZStack {
-                // The wordmark
-                Text("mish")
-                    .font(
-                        .custom("delagothicone-regular", size: logoWidth * 0.24)
-                    )
-                    .foregroundStyle(Color.mishGreen)
-                    .opacity(logoVisible ? 1 : 0)
-                    .scaleEffect(logoVisible ? 1 : 0.88)
-
-                // The detached dot
-                Circle()
-                    .fill(Color.mishGreen)
-                    .frame(width: logoWidth * 0.035)
-                    .offset(
-                        x: dotOffsetX,
-                        y: dotOffsetY
-                    )
-                    .opacity(logoVisible ? 1 : 0)
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text("m")
+                    ZStack {
+                        // Dotless i: its dot is now a separate,
+                        // animated circle instead of part of the glyph.
+                        Text("ı")
+                            .overlay(alignment: .top) {
+                                Circle()
+                                    .fill(Color.mishGreen)
+                                    .frame(width: dotSize, height: dotSize)
+                                    .offset(
+                                        dotOffset(
+                                            fontSize: fontSize,
+                                            centerShift: centerShift,
+                                            radius: orbitRadius
+                                        )
+                                    )
+                                    .opacity(logoVisible ? 1 : 0)
+                            }
+                    }
+                    Text("sh")
+                }
+                .font(.custom("delagothicone-regular", size: fontSize))
+                .foregroundStyle(Color.mishGreen)
+                .opacity(logoVisible ? 1 : 0)
+                .scaleEffect(logoVisible ? 1 : 0.92)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onAppear {
@@ -67,33 +79,38 @@ private struct MishLogoIntro: View {
         }
     }
 
-    private var dotOffsetX: CGFloat {
-        if !dotDetached {
-            return 0
+    private func dotOffset(
+        fontSize: CGFloat,
+        centerShift: CGFloat,
+        radius: CGFloat
+    ) -> CGSize {
+        // The dot begins attached to the i.
+        if returning {
+            return CGSize(width: 0, height: -fontSize * 0.38)
         }
 
+        // A complete, animated orbit around the wordmark.
         if orbiting {
-            return cos(orbitAngle) * 75
+            let angle = -CGFloat.pi / 2
+                + (2 * CGFloat.pi * orbitProgress)
+
+            return CGSize(
+                width: centerShift + cos(angle) * radius,
+                height: sin(angle) * radius
+            )
         }
 
-        return dotReturned ? 0 : 0
-    }
-
-    private var dotOffsetY: CGFloat {
-        if !dotDetached {
-            return -17
+        // Move into position at the top of the orbit.
+        if orbitReady {
+            return CGSize(width: centerShift, height: -radius)
         }
 
-        if orbiting {
-            return sin(orbitAngle) * 75
+        // First, detach upwards.
+        if detached {
+            return CGSize(width: 0, height: -fontSize * 0.9)
         }
 
-        return dotReturned ? -17 : -95
-    }
-
-    private var orbitAngle: CGFloat {
-        CGFloat(Date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 6))
-            * (.pi / 3)
+        return CGSize(width: 0, height: -fontSize * 0.38)
     }
 
     private func playIntro() {
@@ -102,25 +119,32 @@ private struct MishLogoIntro: View {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.55)) {
-                dotDetached = true
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.6)) {
+                detached = true
             }
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
-            withAnimation(.linear(duration: 1.4)) {
-                orbiting = true
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                orbitReady = true
             }
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.9) {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.65)) {
-                orbiting = false
-                dotReturned = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            orbiting = true
+
+            withAnimation(.linear(duration: 2.2)) {
+                orbitProgress = 1
             }
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.8) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.4) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.55)) {
+                returning = true
+            }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.2) {
             onFinished()
         }
     }
