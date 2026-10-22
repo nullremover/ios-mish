@@ -20,7 +20,6 @@ func formatTime(_ t: TimeInterval) -> String {
     return String(format: "%d:%02d", s / 60, s % 60)
 }
 
-@EnvironmentObject private var settings: MishSettings
 
 enum MishTab { case library, playing, queue, lyrics, keypad }
 
@@ -106,6 +105,7 @@ struct ContentView: View {
     @AppStorage("mishAlbumBlurRadius")
     private var albumBlurRadius = 55.0
     @StateObject private var lyricsModel = LyricsModel()
+    @EnvironmentObject private var settings: MishSettings
     
 
 @State private var showBackgroundSettings = false
