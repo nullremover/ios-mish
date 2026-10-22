@@ -418,20 +418,16 @@ struct ContentView: View {
 
     // MARK: Library / Queue lists
     private var libraryList: some View {
-        TrackList(
-            tracks: player.tracks,
-            onSelect: { track in
-                if let i = player.tracks.firstIndex(of: track) {
-                    player.play(index: i)
-                }
-            },
-            onRemove: { track in
-                player.removeFromLibrary(track)
-            },
-            removeLabel: "Remove from Library"
-        )
-    }
-
+    CoverFlowLibraryView(
+        tracks: player.tracks,
+        onSelect: { track in
+            if let index = player.tracks.firstIndex(of: track) {
+                player.play(index: index)
+            }
+        },
+        onRemove: player.removeFromLibrary
+    )
+}
     private var queueList: some View {
         TrackList(
             tracks: player.queue,
@@ -1174,3 +1170,265 @@ private struct BackgroundSettingsView: View {
         .preferredColorScheme(.dark)
     }
 }
+
+
+private struct MishAlbumGroup: Identifiable {
+    let id: String
+    let title: String
+    let artist: String
+    let artwork: UIImage?
+    let tracks: [Track]
+}
+
+private struct CoverFlowLibraryView: View {
+    let tracks: [Track]
+    let onSelect: (Track) -> Void
+    let onRemove: (Track) -> Void
+
+    @State private var selectedAlbumID: String?
+
+    private var albums: [MishAlbumGroup] {
+        var result: [MishAlbumGroup] = []
+        var indexes: [String: Int] = [:]
+
+        // Preserve the order albums first appear in the library.
+        for track in tracks {
+            let albumName = track.album.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+            let artistName = track.artist.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+
+            let title = albumName.isEmpty ? "Unknown Album" : albumName
+            let artist = artistName.isEmpty ? "Unknown Artist" : artistName
+
+            // Separate albums by artist as well as album title.
+            let key = "\(artist)\u{1F}\(title)"
+
+            if let index = indexes[key] {
+                let existing = result[index]
+
+                result[index] = MishAlbumGroup(
+                    id: existing.id,
+                    title: existing.title,
+                    artist: existing.artist,
+                    artwork: existing.artwork ?? track.artwork,
+                    tracks: existing.tracks + [track]
+                )
+            } else {
+                indexes[key] = result.count
+
+                result.append(
+                    MishAlbumGroup(
+                        id: key,
+                        title: title,
+                        artist: artist,
+                        artwork: track.artwork,
+                        tracks: [track]
+                    )
+                )
+            }
+        }
+
+        return result
+    }
+
+    private var selectedIndex: Int {
+        albums.firstIndex {
+            $0.id == selectedAlbumID
+        } ?? 0
+    }
+
+    private var selectedAlbum: MishAlbumGroup? {
+        guard !albums.isEmpty else { return nil }
+        return albums[selectedIndex]
+    }
+
+    private var visibleIndices: [Int] {
+        albums.indices.filter {
+            abs($0 - selectedIndex) <= 2
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 12) {
+            if let selectedAlbum {
+                Text("ALBUMS")
+                    .font(.caption.weight(.semibold))
+                    .tracking(3)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 8)
+
+                // Cover Flow carousel
+                GeometryReader { geometry in
+                    ZStack {
+                        ForEach(visibleIndices, id: \.self) { index in
+                            let album = albums[index]
+                            let distance = index - selectedIndex
+                            let isSelected = distance == 0
+
+                            albumCover(album)
+                                .frame(width: 180, height: 180)
+                                .scaleEffect(isSelected ? 1.0 : 0.76)
+                                .rotation3DEffect(
+                                    .degrees(Double(distance) * -48),
+                                    axis: (x: 0, y: 1, z: 0),
+                                    perspective: 0.55
+                                )
+                                .offset(
+                                    x: CGFloat(distance) * 112,
+                                    y: CGFloat(abs(distance)) * 12
+                                )
+                                .opacity(
+                                    abs(distance) > 1 ? 0.48 : 1.0
+                                )
+                                .zIndex(Double(3 - abs(distance)))
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(
+                                        .spring(
+                                            response: 0.38,
+                                            dampingFraction: 0.82
+                                        )
+                                    ) {
+                                        selectedAlbumID = album.id
+                                    }
+                                }
+                        }
+                    }
+                    .frame(
+                        width: geometry.size.width,
+                        height: geometry.size.height
+                    )
+                    .clipped()
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 20)
+                            .onEnded { value in
+                                guard albums.count > 1 else { return }
+
+                                withAnimation(
+                                    .spring(
+                                        response: 0.38,
+                                        dampingFraction: 0.82
+                                    )
+                                ) {
+                                    if value.translation.width < -35 {
+                                        let next = min(
+                                            selectedIndex + 1,
+                                            albums.count - 1
+                                        )
+                                        selectedAlbumID = albums[next].id
+                                    } else if value.translation.width > 35 {
+                                        let previous = max(
+                                            selectedIndex - 1,
+                                            0
+                                        )
+                                        selectedAlbumID = albums[previous].id
+                                    }
+                                }
+                            }
+                    )
+                    .animation(
+                        .spring(
+                            response: 0.38,
+                            dampingFraction: 0.82
+                        ),
+                        value: selectedAlbumID
+                    )
+                }
+                .frame(height: 205)
+
+                VStack(spacing: 4) {
+                    Text(selectedAlbum.title)
+                        .font(.headline)
+                        .lineLimit(1)
+
+                    Text(selectedAlbum.artist)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    Text(
+                        "\(selectedAlbum.tracks.count) "
+                        + (selectedAlbum.tracks.count == 1
+                           ? "SONG" : "SONGS")
+                    )
+                    .font(.caption2)
+                    .tracking(1.5)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal)
+
+                Divider()
+                    .padding(.horizontal)
+
+                // Reuse Mish's existing song list and row behavior.
+                TrackList(
+                    tracks: selectedAlbum.tracks,
+                    onSelect: onSelect,
+                    onRemove: onRemove
+                )
+            } else {
+                VStack(spacing: 10) {
+                    Image(systemName: "square.stack")
+                        .font(.system(size: 36))
+                        .foregroundStyle(.secondary)
+
+                    Text("No albums yet")
+                        .font(.headline)
+
+                    Text("Add some music to start your collection.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func albumCover(_ album: MishAlbumGroup) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(white: 0.14))
+
+            if let artwork = album.artwork {
+                Image(uiImage: artwork)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 180, height: 180)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+            } else {
+                VStack(spacing: 10) {
+                    Image(systemName: "music.note")
+                        .font(.system(size: 44, weight: .light))
+
+                    Text(album.title)
+                        .font(.caption)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 8)
+                }
+                .foregroundStyle(.white.opacity(0.75))
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay {
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(
+                    Color.white.opacity(0.12),
+                    lineWidth: 1
+                )
+        }
+        .shadow(
+            color: .black.opacity(0.35),
+            radius: 12,
+            x: 0,
+            y: 7
+        )
+    }
+}
+
