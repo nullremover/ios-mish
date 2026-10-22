@@ -141,7 +141,14 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            if specialMode {
+            if isBeautySleepTrack {
+                BeautySleepVideoBackground()
+                    .ignoresSafeArea()
+        
+                Color.black.opacity(0.20)
+                    .ignoresSafeArea()
+        
+            } else if specialMode {
                 GeometryReader { geometry in
                     if let image = Self.underscoresBackground {
                         Image(uiImage: image)
@@ -157,10 +164,10 @@ struct ContentView: View {
                     }
                 }
                 .ignoresSafeArea()
-            
+        
                 Color.white.opacity(0.16)
                     .ignoresSafeArea()
-            
+        
             } else if player.isJaneRemoverMode {
                 GeometryReader { geometry in
                     if let image = Self.janeRemoverBackground {
@@ -177,10 +184,10 @@ struct ContentView: View {
                     }
                 }
                 .ignoresSafeArea()
-            
+        
                 Color.black.opacity(0.20)
                     .ignoresSafeArea()
-            
+        
             } else {
                 AlbumArtBackground(
                     artwork: player.currentTrack?.artwork,
@@ -1168,6 +1175,77 @@ private struct BackgroundSettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+
+private struct BeautySleepVideoBackground: UIViewRepresentable {
+    final class VideoView: UIView {
+        override class var layerClass: AnyClass {
+            AVPlayerLayer.self
+        }
+
+        var playerLayer: AVPlayerLayer {
+            layer as! AVPlayerLayer
+        }
+    }
+
+    final class Coordinator {
+        var player: AVQueuePlayer?
+        var looper: AVPlayerLooper?
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> VideoView {
+        let view = VideoView()
+        view.backgroundColor = .black
+        view.playerLayer.videoGravity = .resizeAspectFill
+
+        guard let url = Bundle.main.url(
+            forResource: "beautysleep_cropped",
+            withExtension: "mp4"
+        ) else {
+            print(
+                "Mish: beautysleep_cropped.mp4 not found in app bundle"
+            )
+            return view
+        }
+
+        let item = AVPlayerItem(url: url)
+        let player = AVQueuePlayer()
+        player.isMuted = true
+        player.actionAtItemEnd = .none
+
+        context.coordinator.player = player
+        context.coordinator.looper = AVPlayerLooper(
+            player: player,
+            templateItem: item
+        )
+
+        view.playerLayer.player = player
+        player.play()
+
+        return view
+    }
+
+    func updateUIView(
+        _ uiView: VideoView,
+        context: Context
+    ) {
+        // The video loops independently of music playback.
+    }
+
+    static func dismantleUIView(
+        _ uiView: VideoView,
+        coordinator: Coordinator
+    ) {
+        coordinator.player?.pause()
+        uiView.playerLayer.player = nil
+        coordinator.looper = nil
+        coordinator.player = nil
     }
 }
 
