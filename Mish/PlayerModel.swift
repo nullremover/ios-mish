@@ -421,6 +421,23 @@ func addToPlaylist(id: UUID, track: Track) {
             return tracks.first { $0.url == url }
         }
     }
+
+    /// Copies picked files into the app's Documents folder (already scanned at startup).
+    func importCopies(_ urls: [URL]) {
+        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+    
+        for url in urls {
+            var dest = docs.appendingPathComponent(url.lastPathComponent)
+            if FileManager.default.fileExists(atPath: dest.path) {
+                let name = url.deletingPathExtension().lastPathComponent
+                dest = docs.appendingPathComponent(
+                    "\(name)-\(UUID().uuidString.prefix(6)).\(url.pathExtension)"
+                )
+            }
+            try? FileManager.default.copyItem(at: url, to: dest)
+        }
+        scan()
+    }
     
     private static func string(_ items: [AVMetadataItem], _ id: AVMetadataIdentifier) async -> String? {
         guard let item = AVMetadataItem.metadataItems(from: items, filteredByIdentifier: id).first,
