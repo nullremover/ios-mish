@@ -7,7 +7,7 @@ struct MishApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MishLaunchFlow()
                 .environmentObject(player)
                 .preferredColorScheme(.dark)
         }
