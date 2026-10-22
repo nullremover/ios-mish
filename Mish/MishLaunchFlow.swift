@@ -131,13 +131,13 @@ private struct MishLogoIntro: View {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-        orbitProgress = 0
-        orbiting = true
-    
-        withAnimation(.linear(duration: 2.2)) {
-            orbitProgress = 0.999
+            orbitProgress = 0
+            orbiting = true
+        
+            withAnimation(.linear(duration: 2.2)) {
+                orbitProgress = 0.999
+            }
         }
-    }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 4.4) {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.55)) {
