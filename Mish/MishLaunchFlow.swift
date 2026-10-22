@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 struct MishLaunchFlow: View {
@@ -84,36 +83,35 @@ private struct MishLogoIntro: View {
         centerShift: CGFloat,
         radius: CGFloat
     ) -> CGSize {
-        // The dot begins attached to the i.
+        // Return back onto top of the i
         if returning {
             return CGSize(width: 0, height: -fontSize * 0.38)
         }
 
-        // A complete, animated orbit around the wordmark.
-        if orbiting || orbitProgress > 0 {
-            let angle = -CGFloat.pi / 2
-                + (2 * CGFloat.pi * orbitProgress)
-        
+        // Animated 360 orbit around wordmark
+        if orbiting {
+            let angle = -CGFloat.pi / 2 + (2 * CGFloat.pi * orbitProgress)
             return CGSize(
                 width: centerShift + cos(angle) * radius,
                 height: sin(angle) * radius
             )
         }
-        
-        // Move into position at the top of the orbit.
+
+        // Ready position at top of orbit
         if orbitReady {
             return CGSize(width: centerShift, height: -radius)
         }
 
-        // First, detach upwards.
+        // Detach upwards
         if detached {
             return CGSize(width: 0, height: -fontSize * 0.9)
         }
 
+        // Default attached position
         return CGSize(width: 0, height: -fontSize * 0.38)
     }
 
-        private func playIntro() {
+    private func playIntro() {
         withAnimation(.easeOut(duration: 0.8)) {
             logoVisible = true
         }
@@ -130,10 +128,10 @@ private struct MishLogoIntro: View {
             }
         }
 
-        // FIXED: Wrap orbiting and the full 1.0 progress together so it doesn't glitch!
+        // Trigger linear orbit cleanly from top to full circle (1.0)
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            orbiting = true
             withAnimation(.linear(duration: 2.2)) {
-                orbiting = true
                 orbitProgress = 1.0
             }
         }
