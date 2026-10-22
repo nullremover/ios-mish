@@ -3,7 +3,6 @@ import SwiftUI
 struct MishLaunchFlow: View {
     @EnvironmentObject private var player: PlayerModel
     @State private var introFinished = false
-    @State private var orbitAmount: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -36,6 +35,7 @@ private struct MishLogoIntro: View {
     @State private var isOrbiting = false
     @State private var orbitAngle: CGFloat = -CGFloat.pi / 2
     @State private var returning = false
+    @State private var orbitAmount: CGFloat = 0
 
     var body: some View {
         GeometryReader { geometry in
