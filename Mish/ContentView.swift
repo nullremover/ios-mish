@@ -203,14 +203,17 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.22), value: specialMode)
 
         // Music file/folder importer
-        .fileImporter(
-            isPresented: $showImporter,
-            allowedContentTypes: importTypes,
-            allowsMultipleSelection: true
-        ) { result in
-            if case .success(let urls) = result {
-                player.addRoots(urls)
-            }
+        .sheet(isPresented: $showImporter) {
+            DocumentPicker(
+                types: importTypes,
+                allowsMultiple: !importFolder,
+                onPick: { urls in
+                    showImporter = false
+                    player.addRoots(urls)
+                },
+                onCancel: { showImporter = false }
+            )
+            .ignoresSafeArea()
         }
 
         // Playlist screen
