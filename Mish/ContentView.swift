@@ -207,9 +207,14 @@ struct ContentView: View {
             DocumentPicker(
                 types: importTypes,
                 allowsMultiple: !importFolder,
+                asCopy: !importFolder,
                 onPick: { urls in
                     showImporter = false
-                    player.addRoots(urls)
+                    if importFolder {
+                        player.addRoots(urls)
+                    } else {
+                        player.importCopies(urls)
+                    }
                 },
                 onCancel: { showImporter = false }
             )
