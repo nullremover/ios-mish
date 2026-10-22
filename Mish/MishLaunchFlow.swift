@@ -40,7 +40,7 @@ private struct MishLogoIntro: View {
     var body: some View {
         GeometryReader { geometry in
             let fontSize = min(geometry.size.width * 0.25, 112)
-            let dotSize = fontSize * 2
+            let dotSize = fontSize * 0.12
             let orbitRadius = fontSize * 1.12
             let centerShift = fontSize * 0.22
 
