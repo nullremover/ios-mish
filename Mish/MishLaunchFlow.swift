@@ -32,8 +32,8 @@ private struct MishLogoIntro: View {
     @State private var logoVisible = false
     @State private var detached = false
     @State private var orbitReady = false
-    @State private var orbiting = false
-    @State private var orbitProgress: CGFloat = 0
+    @State private var isOrbiting = false
+    @State private var orbitAngle: CGFloat = -CGFloat.pi / 2
     @State private var returning = false
 
     var body: some View {
@@ -88,12 +88,11 @@ private struct MishLogoIntro: View {
             return CGSize(width: 0, height: -fontSize * 0.38)
         }
 
-        // PUT ORBITING FIRST so it doesn't get blocked by orbitReady!
-        if orbiting {
-            let angle = -CGFloat.pi / 2 + (2 * CGFloat.pi * orbitProgress)
+        // Animated full 360-degree orbit using direct angle interpolation
+        if isOrbiting {
             return CGSize(
-                width: centerShift + cos(angle) * radius,
-                height: sin(angle) * radius
+                width: centerShift + cos(orbitAngle) * radius,
+                height: sin(orbitAngle) * radius
             )
         }
 
@@ -128,11 +127,11 @@ private struct MishLogoIntro: View {
             }
         }
 
-        // Trigger linear orbit cleanly from top to full circle (1.0)
+        // Directly animate the angle through a full 360-degree rotation!
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            orbiting = true
+            isOrbiting = true
             withAnimation(.linear(duration: 2.2)) {
-                orbitProgress = 1.0
+                orbitAngle = -CGFloat.pi / 2 + (2 * CGFloat.pi)
             }
         }
 
