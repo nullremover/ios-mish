@@ -17,6 +17,148 @@ extension Color {
     static let mishDim = Color(hex: 0x9294a1)
 }
 
+
+ // MARK: - Mish Aero Glass
+
+extension Color {
+    static let aeroSilver = Color(hex: 0xE9EDF2)
+    static let aeroEdge = Color.white.opacity(0.62)
+    static let aeroShadow = Color.black.opacity(0.24)
+}
+
+private struct MishGlassModifier: ViewModifier {
+    var cornerRadius: CGFloat = 20
+    var intensity: Double = 1
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(
+            cornerRadius: cornerRadius,
+            style: .continuous
+        )
+
+        content
+            .background {
+                shape
+                    .fill(.ultraThinMaterial)
+                    .environment(\.colorScheme, .dark)
+            }
+            .background {
+                shape.fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.14 * intensity),
+                            Color.white.opacity(0.035 * intensity),
+                            Color.black.opacity(0.10 * intensity)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            }
+            .overlay {
+                shape.strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.65 * intensity),
+                            .white.opacity(0.12 * intensity),
+                            .white.opacity(0.28 * intensity)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+            }
+            .overlay(alignment: .top) {
+                shape
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.15 * intensity),
+                                .clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .center
+                        )
+                    )
+                    .allowsHitTesting(false)
+            }
+            .shadow(
+                color: .black.opacity(0.20 * intensity),
+                radius: 12,
+                x: 0,
+                y: 6
+            )
+    }
+}
+
+private extension View {
+    func mishGlass(
+        cornerRadius: CGFloat = 20,
+        intensity: Double = 1
+    ) -> some View {
+        modifier(
+            MishGlassModifier(
+                cornerRadius: cornerRadius,
+                intensity: intensity
+            )
+        )
+    }
+}
+
+/// Glossy, tactile controls inspired by classic media hardware.
+private struct MishGlossyButtonStyle: ButtonStyle {
+    var circular = true
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                RoundedRectangle(
+                    cornerRadius: circular ? 100 : 15,
+                    style: .continuous
+                )
+                .fill(
+                    LinearGradient(
+                        colors: configuration.isPressed
+                            ? [
+                                Color(hex: 0xAEB3BC),
+                                Color(hex: 0xE0E3E9)
+                            ]
+                            : [
+                                Color.white,
+                                Color(hex: 0xDDE1E8),
+                                Color(hex: 0xAEB5C0)
+                            ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            }
+            .overlay {
+                RoundedRectangle(
+                    cornerRadius: circular ? 100 : 15,
+                    style: .continuous
+                )
+                .strokeBorder(
+                    Color.white.opacity(0.9),
+                    lineWidth: 1
+                )
+            }
+            .shadow(
+                color: .black.opacity(configuration.isPressed ? 0.08 : 0.28),
+                radius: configuration.isPressed ? 2 : 5,
+                x: 0,
+                y: configuration.isPressed ? 1 : 3
+            )
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .animation(
+                .easeOut(duration: 0.12),
+                value: configuration.isPressed
+            )
+    }
+}
+
+
 func formatTime(_ t: TimeInterval) -> String {
     let s = Int(t.isFinite ? max(0, t) : 0)
     return String(format: "%d:%02d", s / 60, s % 60)
@@ -391,52 +533,61 @@ struct ContentView: View {
     }
 
     // MARK: Bottom nav
+    
     private var bottomNav: some View {
-        HStack {
+        HStack(spacing: 2) {
             navItem("Library", icon: "music.note.list", for: .library)
             navItem("Playing", icon: "music.note", for: .playing)
             navItem("Queue", icon: "list.bullet", for: .queue)
             navItem("Keypad", icon: "circle.grid.3x3.fill", for: .keypad)
             navItem("Lyrics", icon: "text.quote", for: .lyrics)
         }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 5)
+        .mishGlass(cornerRadius: 24)
+        .padding(.horizontal, 12)
         .padding(.top, 8)
-        .overlay(
-            Rectangle()
-                .fill(
-                    (specialMode ? Color.black : Color.white)
-                        .opacity(0.12)
-                )
-                .frame(height: 1),
-            alignment: .top
-        )
+        .padding(.bottom, 5)
     }
+    
 
     private func navItem(
         _ title: String,
         icon: String,
         for target: MishTab
     ) -> some View {
-        Button {
-            tab = target
-        } label: {
-            VStack(spacing: 3) {
-                Image(systemName: icon)
-                    .font(.system(size: 19))
-
-                Text(title)
-                    .font(.system(size: 10))
+            Button {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                    tab = target
+                }
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: tab == target ? .semibold : .regular))
+            
+                    Text(title)
+                        .font(.system(size: 9, weight: tab == target ? .semibold : .medium))
+                }
+                .frame(maxWidth: .infinity, minHeight: 46)
+                .foregroundStyle(
+                    tab == target
+                        ? (specialMode ? Color.black : Color.white)
+                        : (specialMode
+                            ? Color.black.opacity(0.55)
+                            : Color.white.opacity(0.58))
+                )
+                .background {
+                    if tab == target {
+                        RoundedRectangle(cornerRadius: 17, style: .continuous)
+                            .fill(.white.opacity(specialMode ? 0.14 : 0.16))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 17, style: .continuous)
+                                    .strokeBorder(.white.opacity(0.24), lineWidth: 1)
+                            }
+                    }
+                }
             }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .foregroundColor(
-                tab == target
-                    ? (specialMode ? .black : .white)
-                    : (specialMode
-                        ? Color.black.opacity(0.55)
-                        : Color(hex: 0x828491))
-            )
-        }
-        .buttonStyle(.plain)
-    }
+            .buttonStyle(.plain)
 
     // MARK: Library / Queue lists
     private var libraryList: some View {
@@ -775,6 +926,36 @@ struct NowPlayingView: View {
                 }
             )
             .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 19, style: .continuous)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.65),
+                                .white.opacity(0.08),
+                                .white.opacity(0.22)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+                    .allowsHitTesting(false)
+            }
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: 19, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                .white.opacity(0.14),
+                                .clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .center
+                        )
+                    )
+                    .allowsHitTesting(false)
+            }
             .shadow(color: Color.black.opacity(0.4), radius: 20, y: 18)
     }
 
@@ -846,10 +1027,28 @@ struct NowPlayingView: View {
         }
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            Color.white.opacity(specialMode ? 0.12 : 0.07),
-            in: RoundedRectangle(cornerRadius: 16)
-        )
+        
+        .background {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .environment(\.colorScheme, .dark)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.42),
+                            .white.opacity(0.08),
+                            .white.opacity(0.20)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        }
+        .shadow(color: .black.opacity(0.15), radius: 10, y: 5)
     }
     
     private var seekBar: some View {
@@ -962,14 +1161,16 @@ struct NowPlayingView: View {
             Spacer()
             controlButton(icon: "backward.fill", size: 22) { player.previous() }
             Spacer()
-            Button { player.togglePlay() } label: {
+            Button {
+                player.togglePlay()
+            } label: {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 23, weight: .bold))
-                    .foregroundColor(specialMode ? .white : Color(hex: 0x121812))
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(Color(hex: 0x242831))
                     .frame(width: 58, height: 58)
-                    .background(Circle().fill(specialMode ? Color.black : Color.white))
+                    .contentTransition(.symbolEffect(.replace))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(MishGlossyButtonStyle())
             Spacer()
             controlButton(icon: "forward.fill", size: 22) { player.next() }
             Spacer()
