@@ -90,16 +90,16 @@ private struct MishLogoIntro: View {
         }
 
         // A complete, animated orbit around the wordmark.
-        if orbiting {
+        if orbiting || orbitProgress > 0 {
             let angle = -CGFloat.pi / 2
                 + (2 * CGFloat.pi * orbitProgress)
-
+        
             return CGSize(
                 width: centerShift + cos(angle) * radius,
                 height: sin(angle) * radius
             )
         }
-
+        
         // Move into position at the top of the orbit.
         if orbitReady {
             return CGSize(width: centerShift, height: -radius)
@@ -131,12 +131,13 @@ private struct MishLogoIntro: View {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            orbiting = true
-
-            withAnimation(.linear(duration: 2.2)) {
-                orbitProgress = 1
-            }
+        orbitProgress = 0
+        orbiting = true
+    
+        withAnimation(.linear(duration: 2.2)) {
+            orbitProgress = 0.999
         }
+    }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 4.4) {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.55)) {
