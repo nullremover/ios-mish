@@ -7,6 +7,7 @@ import UIKit
 struct DocumentPicker: UIViewControllerRepresentable {
     let types: [UTType]
     let allowsMultiple: Bool
+    var asCopy: Bool = false
     let onPick: ([URL]) -> Void
     let onCancel: () -> Void
 
@@ -17,7 +18,7 @@ struct DocumentPicker: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
         let picker = UIDocumentPickerViewController(
             forOpeningContentTypes: types,
-            asCopy: false
+            asCopy: asCopy
         )
         picker.allowsMultipleSelection = allowsMultiple
         picker.delegate = context.coordinator
