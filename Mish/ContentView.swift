@@ -201,32 +201,61 @@ struct ContentView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
-                Group {
+                
+                ZStack {
                     if tab == .keypad {
                         KeypadView(
                             unlocked: $gabrielUnlocked,
                             tint: specialMode ? .black : .white
                         )
+                        .transition(.opacity)
+                
                     } else if player.tracks.isEmpty {
                         emptyState
+                            .transition(.opacity)
+                
                     } else {
-                        switch tab {
-                        case .playing:
-                            NowPlayingView(onShowLyrics: { tab = .lyrics })
+                        Group {
+                            switch tab {
+                            case .playing:
+                                NowPlayingView(onShowLyrics: {
+                                    withAnimation(.easeInOut(duration: 0.28)) {
+                                        tab = .lyrics
+                                    }
+                                })
                                 .environmentObject(lyricsModel)
-                        case .library:
-                            libraryList
-                        case .queue:
-                            queueList
-                        case .lyrics:
-                            LyricsView()
-                                .environmentObject(lyricsModel)
-                        case .keypad:
-                            EmptyView()
+                
+                            case .library:
+                                libraryList
+                
+                            case .queue:
+                                queueList
+                
+                            case .lyrics:
+                                LyricsView()
+                                    .environmentObject(lyricsModel)
+                
+                            case .keypad:
+                                EmptyView()
+                            }
                         }
+                        .id(tab)
+                        .transition(
+                            .asymmetric(
+                                insertion: .move(edge: .trailing)
+                                    .combined(with: .opacity),
+                                removal: .move(edge: .leading)
+                                    .combined(with: .opacity)
+                            )
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+                .animation(
+                    .spring(response: 0.34, dampingFraction: 0.88),
+                    value: tab
+                )
                 bottomNav
             }
             .foregroundStyle(specialMode ? Color.black : Color.white)
