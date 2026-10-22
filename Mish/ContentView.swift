@@ -588,6 +588,7 @@ struct ContentView: View {
                 }
             }
             .buttonStyle(.plain)
+        }
 
     // MARK: Library / Queue lists
     private var libraryList: some View {
