@@ -526,31 +526,31 @@ struct NowPlayingView: View {
     private var vinylArtwork: some View {
         ZStack {
             Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            Color(white: 0.25),
-                            Color.black,
-                            Color(white: 0.12),
-                            Color.black
-                        ],
-                        center: .center,
-                        startRadius: 8,
-                        endRadius: 170
-                    )
-                    .rotationEffect(.degrees(vinylRotation))
-                    .onAppear {
-                        if player.isPlaying {
-                            vinylRotation = 360
-                        }
-                    }
-                    .animation(
-                        player.isPlaying
-                            ? .linear(duration: 3).repeatForever(autoreverses: false)
-                            : .default,
-                        value: player.isPlaying
-                    )
+    .fill(
+        RadialGradient(
+            colors: [
+                Color(white: 0.25),
+                Color.black,
+                Color(white: 0.12),
+                Color.black
+            ],
+            center: .center,
+            startRadius: 8,
+            endRadius: 170
                 )
+            )
+            .rotationEffect(.degrees(vinylRotation))
+            .onAppear {
+                if player.isPlaying {
+                    vinylRotation = 360
+                }
+            }
+            .animation(
+                player.isPlaying
+                    ? .linear(duration: 3).repeatForever(autoreverses: false)
+                    : .default,
+                value: player.isPlaying
+            )
     
             // Vinyl grooves
             ForEach(0..<7, id: \.self) { index in
