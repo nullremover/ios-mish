@@ -466,6 +466,7 @@ struct NowPlayingView: View {
     @EnvironmentObject private var settings: MishSettings
     @State private var scrubValue: Double = 0
     @State private var frozenSpectrum: [Float]? = nil
+    @State private var vinylRotation: Double = 0
     
     private let waveformBarCount = 72
 
@@ -536,6 +537,18 @@ struct NowPlayingView: View {
                         center: .center,
                         startRadius: 8,
                         endRadius: 170
+                    )
+                    .rotationEffect(.degrees(vinylRotation))
+                    .onAppear {
+                        if player.isPlaying {
+                            vinylRotation = 360
+                        }
+                    }
+                    .animation(
+                        player.isPlaying
+                            ? .linear(duration: 3).repeatForever(autoreverses: false)
+                            : .default,
+                        value: player.isPlaying
                     )
                 )
     
