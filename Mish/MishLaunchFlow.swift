@@ -88,7 +88,7 @@ private struct MishLogoIntro: View {
             return CGSize(width: 0, height: -fontSize * 0.38)
         }
 
-        // Animated 360 orbit around wordmark
+        // PUT ORBITING FIRST so it doesn't get blocked by orbitReady!
         if orbiting {
             let angle = -CGFloat.pi / 2 + (2 * CGFloat.pi * orbitProgress)
             return CGSize(
