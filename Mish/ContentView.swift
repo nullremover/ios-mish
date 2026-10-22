@@ -135,6 +135,19 @@ struct ContentView: View {
     return UIImage(contentsOfFile: url.path)
 }
 
+    private var isBeautySleepTrack: Bool {
+    guard let track = player.currentTrack else {
+        return false
+    }
+
+    return track.title.trimmingCharacters(
+        in: .whitespacesAndNewlines
+    ).localizedCaseInsensitiveCompare("Beauty Sleep") == .orderedSame
+    && track.artist.trimmingCharacters(
+        in: .whitespacesAndNewlines
+    ).localizedCaseInsensitiveCompare("Jane Remover") == .orderedSame
+}
+
     private var importTypes: [UTType] {
         importFolder
             ? [.folder]
