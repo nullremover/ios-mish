@@ -1,31 +1,56 @@
+
 import SwiftUI
 
 struct MishLaunchFlow: View {
     @EnvironmentObject private var player: PlayerModel
-    @State private var introFinished = false
+    @StateObject private var settings = MishSettings()
+
+    private enum Stage {
+        case intro
+        case setup
+        case main
+    }
+
+    @State private var stage: Stage = .intro
 
     var body: some View {
         ZStack {
             Color(red: 0.03, green: 0.03, blue: 0.04)
                 .ignoresSafeArea()
 
-            if introFinished {
-                ContentView()
-                    .environmentObject(player)
-                    .transition(.opacity)
-            } else {
+            switch stage {
+            case .intro:
                 MishLogoIntro {
                     withAnimation(.easeInOut(duration: 0.8)) {
-                        introFinished = true
+                        stage = settings.setupComplete ? .main : .setup
                     }
                 }
                 .transition(.opacity)
+
+            case .setup:
+                MishSetupWizard {
+                    withAnimation(.easeInOut(duration: 0.8)) {
+                        stage = .main
+                    }
+                }
+                .environmentObject(player)
+                .environmentObject(settings)
+                .transition(.opacity)
+
+            case .main:
+                ContentView()
+                    .environmentObject(player)
+                    .environmentObject(settings)
+                    .transition(.opacity)
             }
         }
         .preferredColorScheme(.dark)
     }
 }
-    private struct MishLogoIntro: View {
+
+// MARK: - Logo Intro
+
+private struct MishLogoIntro: View {
     let onFinished: () -> Void
 
     private let letters = ["m", "i", "s", "h"]
@@ -44,19 +69,30 @@ struct MishLaunchFlow: View {
             ZStack {
                 // Afterimage echoes (3DS-style)
                 if showEcho2 {
-                    EchoView(endScale: 1.8, startOpacity: 0.25, duration: 0.9) {
+                    EchoView(
+                        endScale: 1.8,
+                        startOpacity: 0.25,
+                        duration: 0.9
+                    ) {
                         staticLogo(fontSize)
                     }
                 }
+
                 if showEcho1 {
-                    EchoView(endScale: 1.4, startOpacity: 0.45, duration: 0.7) {
+                    EchoView(
+                        endScale: 1.4,
+                        startOpacity: 0.45,
+                        duration: 0.7
+                    ) {
                         staticLogo(fontSize)
                     }
                 }
 
                 // Main logo: letters snap in one by one
                 droppingLogo(fontSize)
-                    .overlay { shineOverlay(fontSize) }
+                    .overlay {
+                        shineOverlay(fontSize)
+                    }
                     .shadow(
                         color: Color.mishGreen.opacity(glow ? 0.6 : 0),
                         radius: glow ? 24 : 0
@@ -64,11 +100,13 @@ struct MishLaunchFlow: View {
                     .scaleEffect(pulse ? 1.07 : 1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onAppear { playIntro() }
+            .onAppear {
+                playIntro()
+            }
         }
     }
 
-    // MARK: - Pieces
+    // MARK: Pieces
 
     private func staticLogo(_ fontSize: CGFloat) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
@@ -85,7 +123,11 @@ struct MishLaunchFlow: View {
             ForEach(letters.indices, id: \.self) { i in
                 Text(letters[i])
                     .offset(y: landed[i] ? 0 : -fontSize * 1.4)
-                    .rotationEffect(.degrees(landed[i] ? 0 : (i % 2 == 0 ? -14 : 14)))
+                    .rotationEffect(
+                        .degrees(
+                            landed[i] ? 0 : (i % 2 == 0 ? -14 : 14)
+                        )
+                    )
                     .scaleEffect(landed[i] ? 1 : 1.25)
                     .opacity(landed[i] ? 1 : 0)
             }
@@ -95,26 +137,34 @@ struct MishLaunchFlow: View {
     }
 
     private func shineOverlay(_ fontSize: CGFloat) -> some View {
-        GeometryReader { g in
+        GeometryReader { geometry in
             LinearGradient(
-                colors: [Color.clear, Color.white.opacity(0.85), Color.clear],
+                colors: [
+                    Color.clear,
+                    Color.white.opacity(0.85),
+                    Color.clear
+                ],
                 startPoint: .leading,
                 endPoint: .trailing
             )
-            .frame(width: g.size.width * 0.4)
-            .offset(x: shine * g.size.width)
+            .frame(width: geometry.size.width * 0.4)
+            .offset(x: shine * geometry.size.width)
         }
         .mask(staticLogo(fontSize))
         .allowsHitTesting(false)
     }
 
-    // MARK: - Timeline
+    // MARK: Timeline
 
     private func playIntro() {
         // Letters snap in, staggered
         for i in letters.indices {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3 + Double(i) * 0.12) {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.58)) {
+            DispatchQueue.main.asyncAfter(
+                deadline: .now() + 0.3 + Double(i) * 0.12
+            ) {
+                withAnimation(
+                    .spring(response: 0.38, dampingFraction: 0.58)
+                ) {
                     landed[i] = true
                 }
             }
@@ -123,14 +173,19 @@ struct MishLaunchFlow: View {
         // Impact: pulse, glow, first echo
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
             showEcho1 = true
+
             withAnimation(.easeOut(duration: 0.08)) {
                 pulse = true
                 glow = true
             }
+
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                withAnimation(
+                    .spring(response: 0.3, dampingFraction: 0.5)
+                ) {
                     pulse = false
                 }
+
                 withAnimation(.easeOut(duration: 0.6)) {
                     glow = false
                 }
@@ -149,39 +204,44 @@ struct MishLaunchFlow: View {
             }
         }
 
+        // Continue into setup or the main player
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
             onFinished()
         }
     }
 }
 
-/// A ghost copy of the logo that expands and fades out as soon as it appears.
-    private struct EchoView<Content: View>: View {
-        let endScale: CGFloat
-        let startOpacity: Double
-        let duration: Double
-        let content: Content
-    
-        @State private var go = false
-    
-        init(
-            endScale: CGFloat,
-            startOpacity: Double,
-            duration: Double,
-            @ViewBuilder content: () -> Content
-        ) {
-            self.endScale = endScale
-            self.startOpacity = startOpacity
-            self.duration = duration
-            self.content = content()
-        }
-    
-        var body: some View {
-            content
-                .opacity(go ? 0 : startOpacity)
-                .scaleEffect(go ? endScale : 1)
-                .onAppear {
-                    withAnimation(.easeOut(duration: duration)) { go = true }
-                }
-        }
+// MARK: - Logo Echo
+
+/// A ghost copy of the logo that expands and fades out.
+private struct EchoView<Content: View>: View {
+    let endScale: CGFloat
+    let startOpacity: Double
+    let duration: Double
+    let content: Content
+
+    @State private var go = false
+
+    init(
+        endScale: CGFloat,
+        startOpacity: Double,
+        duration: Double,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.endScale = endScale
+        self.startOpacity = startOpacity
+        self.duration = duration
+        self.content = content()
     }
+
+    var body: some View {
+        content
+            .opacity(go ? 0 : startOpacity)
+            .scaleEffect(go ? endScale : 1)
+            .onAppear {
+                withAnimation(.easeOut(duration: duration)) {
+                    go = true
+                }
+            }
+    }
+}
