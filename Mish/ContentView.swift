@@ -21,7 +21,7 @@ func formatTime(_ t: TimeInterval) -> String {
 }
 
 
-enum MishTab { case library, playing, queue, lyrics }
+enum MishTab { case library, playing, queue, lyrics, keypad }
 
 
 private struct AlbumArtBackground: View {
@@ -69,6 +69,7 @@ struct ContentView: View {
     @State private var importFolder = true
     @State private var chaos = false
     @State private var showPlaylists = false
+    @State private var gabrielUnlocked = false
     @AppStorage("mishAlbumBlurEnabled")
     private var albumBlurEnabled = true
     @AppStorage("mishAlbumBlurRadius")
@@ -163,28 +164,37 @@ struct ContentView: View {
             VStack(spacing: 0) {
                 topBar
 
+                if gabrielUnlocked {
+                    ThankYouBanner()
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 Group {
-                    if player.tracks.isEmpty {
+                    if tab == .keypad {
+                        KeypadView(
+                            unlocked: $gabrielUnlocked,
+                            tint: specialMode ? .black : .white
+                        )
+                    } else if player.tracks.isEmpty {
                         emptyState
                     } else {
                         switch tab {
                         case .playing:
-                            NowPlayingView(
-                                onShowLyrics: { tab = .lyrics }
-                            )
-                            .environmentObject(lyricsModel)
+                            NowPlayingView(onShowLyrics: { tab = .lyrics })
+                                .environmentObject(lyricsModel)
                         case .library:
                             libraryList
                         case .queue:
                             queueList
                         case .lyrics:
                             LyricsView()
-                            .environmentObject(lyricsModel)
+                                .environmentObject(lyricsModel)
+                        case .keypad:
+                            EmptyView()
                         }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-
                 bottomNav
             }
             .foregroundStyle(specialMode ? Color.black : Color.white)
@@ -295,6 +305,7 @@ struct ContentView: View {
             navItem("Library", icon: "music.note.list", for: .library)
             navItem("Playing", icon: "music.note", for: .playing)
             navItem("Queue", icon: "list.bullet", for: .queue)
+            navItem("Keypad", icon: "circle.grid.3x3.fill", for: .keypad)
             navItem("Lyrics", icon: "text.quote", for: .lyrics)
         }
         .padding(.top, 8)
