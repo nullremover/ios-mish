@@ -3,6 +3,7 @@ import SwiftUI
 struct MishLaunchFlow: View {
     @EnvironmentObject private var player: PlayerModel
     @State private var introFinished = false
+    @State private var orbitAmount: CGFloat = 0
 
     var body: some View {
         ZStack {
@@ -39,7 +40,7 @@ private struct MishLogoIntro: View {
     var body: some View {
         GeometryReader { geometry in
             let fontSize = min(geometry.size.width * 0.25, 112)
-            let dotSize = fontSize * 0.075
+            let dotSize = fontSize * 2
             let orbitRadius = fontSize * 1.12
             let centerShift = fontSize * 0.22
 
@@ -61,6 +62,14 @@ private struct MishLogoIntro: View {
                                             radius: orbitRadius
                                         )
                                     )
+                                    .modifier(
+                                        OrbitEffect(
+                                            angle: orbitAngle,
+                                            amount: orbitAmount,
+                                            centerShift: centerShift,
+                                            radius: orbitRadius
+                                        )
+                                    )
                                     .opacity(logoVisible ? 1 : 0)
                             }
                     }
@@ -78,37 +87,21 @@ private struct MishLogoIntro: View {
         }
     }
 
-    private func dotOffset(
-        fontSize: CGFloat,
-        centerShift: CGFloat,
-        radius: CGFloat
-    ) -> CGSize {
-        // Return back onto top of the i
-        if returning {
-            return CGSize(width: 0, height: -fontSize * 0.38)
-        }
-
-        // Animated full 360-degree orbit using direct angle interpolation
-        if isOrbiting {
-            return CGSize(
-                width: centerShift + cos(orbitAngle) * radius,
-                height: sin(orbitAngle) * radius
-            )
-        }
-
-        // Ready position at top of orbit
-        if orbitReady {
-            return CGSize(width: centerShift, height: -radius)
-        }
-
-        // Detach upwards
-        if detached {
-            return CGSize(width: 0, height: -fontSize * 0.9)
-        }
-
-        // Default attached position
+   private func dotOffset(fontSize: CGFloat, centerShift: CGFloat, radius: CGFloat) -> CGSize {
+    if returning {
         return CGSize(width: 0, height: -fontSize * 0.38)
     }
+    if isOrbiting {
+        return .zero                       // OrbitEffect handles the position
+    }
+    if orbitReady {
+        return CGSize(width: centerShift, height: -radius)
+    }
+    if detached {
+        return CGSize(width: 0, height: -fontSize * 0.9)
+    }
+    return CGSize(width: 0, height: -fontSize * 0.38)
+}
 
     private func playIntro() {
         withAnimation(.easeOut(duration: 0.8)) {
@@ -129,15 +122,20 @@ private struct MishLogoIntro: View {
 
         // Directly animate the angle through a full 360-degree rotation!
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            // Not animated: base offset goes (cs,-r) -> 0 while the effect
+            // goes 0 -> (cs,-r), so the dot doesn't move at the handoff.
             isOrbiting = true
+            orbitAmount = 1
+        
             withAnimation(.linear(duration: 2.2)) {
                 orbitAngle = -CGFloat.pi / 2 + (2 * CGFloat.pi)
             }
         }
-
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 4.4) {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.55)) {
                 returning = true
+                orbitAmount = 0     // fades the orbit offset out as the base offset returns to the i
             }
         }
 
@@ -145,4 +143,22 @@ private struct MishLogoIntro: View {
             onFinished()
         }
     }
+    
+    private struct OrbitEffect: GeometryEffect {
+    var angle: CGFloat
+    var amount: CGFloat          // 1 = full orbit offset, 0 = none
+    let centerShift: CGFloat
+    let radius: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(angle, amount) }
+        set { angle = newValue.first; amount = newValue.second }
+    }
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let x = amount * (centerShift + cos(angle) * radius)
+        let y = amount * (sin(angle) * radius)
+        return ProjectionTransform(CGAffineTransform(translationX: x, y: y))
+    }
+}
 }
