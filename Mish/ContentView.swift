@@ -20,19 +20,47 @@ func formatTime(_ t: TimeInterval) -> String {
     return String(format: "%d:%02d", s / 60, s % 60)
 }
 
+@EnvironmentObject private var settings: MishSettings
 
 enum MishTab { case library, playing, queue, lyrics, keypad }
+
 
 
 private struct AlbumArtBackground: View {
     let artwork: UIImage?
     let blurRadius: Double
     let blurEnabled: Bool
+    let theme: MishBaseTheme
 
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                Color(hex: 0x101014)
+                switch theme {
+                case .smoked:
+                    LinearGradient(
+                        colors: [
+                            Color(white: 0.17),
+                            Color(white: 0.06)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+
+                case .amoled:
+                    Color.black
+
+                case .clear:
+                    LinearGradient(
+                        colors: [
+                            Color.mishGreen.opacity(0.3),
+                            Color.blue.opacity(0.2),
+                            Color.purple.opacity(0.3)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .overlay(.ultraThinMaterial)
+                }
 
                 if let artwork {
                     Image(uiImage: artwork)
@@ -45,7 +73,9 @@ private struct AlbumArtBackground: View {
                         .clipped()
                         .blur(radius: blurEnabled ? blurRadius : 0)
                         .overlay {
-                            Color.black.opacity(0.48)
+                            Color.black.opacity(
+                                theme == .clear ? 0.28 : 0.48
+                            )
                         }
                         .transition(.opacity)
                 }
@@ -59,6 +89,7 @@ private struct AlbumArtBackground: View {
         .ignoresSafeArea()
     }
 }
+
 
 
 // MARK: - Root
@@ -154,7 +185,8 @@ struct ContentView: View {
                 AlbumArtBackground(
                     artwork: player.currentTrack?.artwork,
                     blurRadius: albumBlurRadius,
-                    blurEnabled: albumBlurEnabled
+                    blurEnabled: albumBlurEnabled,
+                    theme: settings.baseTheme
                 )
                 .id(player.currentTrack?.url)
             }
@@ -431,6 +463,7 @@ struct NowPlayingView: View {
     var onShowLyrics: () -> Void = {}
     @State private var liked = false
     @State private var scrubbing = false
+    @EnvironmentObject private var settings: MishSettings
     @State private var scrubValue: Double = 0
     @State private var frozenSpectrum: [Float]? = nil
     
@@ -445,24 +478,219 @@ struct NowPlayingView: View {
     private var progress: Double {
         player.duration > 0 ? min(max(displayTime / player.duration, 0), 1) : 0
     }
-
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 18) {
-                if !specialMode { artwork }
-                trackInfo
+            VStack(spacing: settings.layout == .minimal ? 12 : 18) {
+                switch settings.layout {
+                case .classic:
+                    if !specialMode {
+                        artwork
+                    }
+    
+                    trackInfo
+    
+                case .vinyl:
+                    if !specialMode {
+                        vinylArtwork
+                    }
+    
+                    trackInfo
+    
+                case .minimal:
+                    minimalHeader
+    
+                case .immersive:
+                    if !specialMode {
+                        immersiveArtwork
+                    }
+    
+                    trackInfo
+                }
+    
                 seekBar
                 controls
                 lyricsPreview
                 upNext
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, settings.layout == .minimal ? 14 : 20)
             .padding(.top, 6)
             .padding(.bottom, 12)
         }
         .foregroundStyle(mainText)
-        .animation(.easeInOut(duration: 0.22), value: specialMode)
+        .animation(.easeInOut(duration: 0.3), value: specialMode)
+        .animation(.easeInOut(duration: 0.3), value: settings.layout)
+        .animation(.easeInOut(duration: 0.3), value: settings.baseTheme)
     }
+    
+    private var vinylArtwork: some View {
+        ZStack {
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(white: 0.25),
+                            Color.black,
+                            Color(white: 0.12),
+                            Color.black
+                        ],
+                        center: .center,
+                        startRadius: 8,
+                        endRadius: 170
+                    )
+                )
+    
+            // Vinyl grooves
+            ForEach(0..<7, id: \.self) { index in
+                Circle()
+                    .stroke(
+                        Color.white.opacity(0.06),
+                        lineWidth: 1
+                    )
+                    .padding(CGFloat(index + 1) * 9)
+            }
+    
+            if let image = player.currentTrack?.artwork {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 155, height: 155)
+                    .clipShape(Circle())
+                    .overlay {
+                        Circle()
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    }
+            } else {
+                Circle()
+                    .fill(Color.mishGreen.opacity(0.75))
+                    .frame(width: 155, height: 155)
+                    .overlay {
+                        Text("mish")
+                            .font(.custom("delagothicone-regular", size: 30))
+                            .foregroundStyle(.black)
+                    }
+            }
+    
+            Circle()
+                .fill(Color.black)
+                .frame(width: 12, height: 12)
+                .overlay {
+                    Circle()
+                        .fill(Color.white.opacity(0.4))
+                        .frame(width: 3, height: 3)
+                }
+        }
+        .frame(width: 290, height: 290)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+    }
+    
+    private var minimalHeader: some View {
+        HStack(spacing: 14) {
+            Group {
+                if let image = player.currentTrack?.artwork {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.white.opacity(0.08))
+                        .overlay {
+                            Image(systemName: "music.note")
+                                .font(.title2)
+                                .foregroundStyle(Color.mishGreen)
+                        }
+                }
+            }
+            .frame(width: 68, height: 68)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+    
+            VStack(alignment: .leading, spacing: 5) {
+                Text(player.currentTrack?.title ?? "Nothing playing")
+                    .font(.system(size: 18, weight: .semibold))
+                    .lineLimit(2)
+    
+                Text(subtitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(secondaryText)
+                    .lineLimit(2)
+    
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(player.isPlaying ? Color.mishGreen : secondaryText)
+                        .frame(width: 6, height: 6)
+    
+                    Text(player.isPlaying ? "PLAYING" : "PAUSED")
+                        .font(.system(size: 9, weight: .bold))
+                        .tracking(1.4)
+                        .foregroundStyle(secondaryText)
+                }
+            }
+    
+            Spacer(minLength: 0)
+    
+            Button {
+                liked.toggle()
+            } label: {
+                Image(systemName: liked ? "heart.fill" : "heart")
+                    .font(.system(size: 20))
+                    .foregroundStyle(
+                        liked ? Color.mishGreen : mainText.opacity(0.8)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 8)
+    }
+    
+    private var immersiveArtwork: some View {
+        ZStack(alignment: .bottomLeading) {
+            Group {
+                if let image = player.currentTrack?.artwork {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    LinearGradient(
+                        colors: [
+                            Color.mishGreen.opacity(0.7),
+                            Color.black
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .overlay {
+                        Text("mish")
+                            .font(.custom("delagothicone-regular", size: 54))
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                }
+            }
+            .frame(height: 360)
+            .frame(maxWidth: .infinity)
+            .clipped()
+    
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.85)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+    
+            VStack(alignment: .leading, spacing: 5) {
+                Text(player.currentTrack?.title ?? "Nothing playing")
+                    .font(.system(size: 25, weight: .bold))
+                    .lineLimit(2)
+    
+                Text(subtitle)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
+            }
+            .padding(18)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .shadow(color: .black.opacity(0.3), radius: 16, y: 8)
+    }
+    
 
     private var artwork: some View {
         Color.clear
