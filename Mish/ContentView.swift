@@ -722,7 +722,7 @@ struct NowPlayingView: View {
         .animation(.easeInOut(duration: 0.3), value: settings.baseTheme)
     }
     
-    private var vinylArtwork: some View {
+    private var vinylDisc: some View {
         ZStack {
             Circle()
     .fill(
@@ -738,19 +738,6 @@ struct NowPlayingView: View {
             endRadius: 170
                 )
             )
-            .rotationEffect(.degrees(vinylRotation))
-            .onAppear {
-                if player.isPlaying {
-                    vinylRotation = 360
-                }
-            }
-            .animation(
-                player.isPlaying
-                    ? .linear(duration: 3).repeatForever(autoreverses: false)
-                    : .default,
-                value: player.isPlaying
-            )
-    
             // Vinyl grooves
             ForEach(0..<7, id: \.self) { index in
                 Circle()
@@ -795,6 +782,17 @@ struct NowPlayingView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
     }
+
+ private var vinylArtwork: some View {
+      TimelineView(.animation(paused: !player.isPlaying)) { context in
+          let seconds = context.date.timeIntervalSinceReferenceDate
+          let angle = seconds.truncatingRemainder(dividingBy: 4) / 4 * 360
+          vinylDisc.rotationEffect(.degrees(angle))
+      }
+      .frame(width: 290, height: 290)
+      .frame(maxWidth: .infinity)
+      .padding(.vertical, 10)
+  }
     
     private var minimalHeader: some View {
         HStack(spacing: 14) {
