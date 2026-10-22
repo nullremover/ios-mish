@@ -1,5 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import AVFoundation
+import UIKit
 
 // MARK: - Colors from the CSS
 extension Color {
