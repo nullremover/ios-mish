@@ -113,7 +113,7 @@ private struct MishLogoIntro: View {
         return CGSize(width: 0, height: -fontSize * 0.38)
     }
 
-    private func playIntro() {
+        private func playIntro() {
         withAnimation(.easeOut(duration: 0.8)) {
             logoVisible = true
         }
@@ -130,12 +130,11 @@ private struct MishLogoIntro: View {
             }
         }
 
+        // FIXED: Wrap orbiting and the full 1.0 progress together so it doesn't glitch!
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            orbitProgress = 0
-            orbiting = true
-        
             withAnimation(.linear(duration: 2.2)) {
-                orbitProgress = 0.999
+                orbiting = true
+                orbitProgress = 1.0
             }
         }
 
