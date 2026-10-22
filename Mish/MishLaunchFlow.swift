@@ -94,7 +94,7 @@ private struct MishLogoIntro: View {
                         shineOverlay(fontSize)
                     }
                     .shadow(
-                        color: Color.mishGreen.opacity(glow ? 0.6 : 0),
+                        color: Color.white.opacity(glow ? 0.6 : 0),
                         radius: glow ? 24 : 0
                     )
                     .scaleEffect(pulse ? 1.07 : 1)
@@ -115,7 +115,7 @@ private struct MishLogoIntro: View {
             }
         }
         .font(.custom("delagothicone-regular", size: fontSize))
-        .foregroundStyle(Color.mishGreen)
+        .foregroundStyle(Color.white)
     }
 
     private func droppingLogo(_ fontSize: CGFloat) -> some View {
@@ -133,7 +133,7 @@ private struct MishLogoIntro: View {
             }
         }
         .font(.custom("delagothicone-regular", size: fontSize))
-        .foregroundStyle(Color.mishGreen)
+        .foregroundStyle(Color.white)
     }
 
     private func shineOverlay(_ fontSize: CGFloat) -> some View {
@@ -141,7 +141,7 @@ private struct MishLogoIntro: View {
             LinearGradient(
                 colors: [
                     Color.clear,
-                    Color.white.opacity(0.85),
+                    Color.black.opacity(0.85),
                     Color.clear
                 ],
                 startPoint: .leading,
