@@ -165,7 +165,7 @@ func formatTime(_ t: TimeInterval) -> String {
 }
 
 
-enum MishTab { case library, playing, queue, lyrics, keypad }
+enum MishTab { case library, playing, queue, lyrics, keypad, about }
 
 
 
@@ -401,6 +401,9 @@ struct ContentView: View {
                 
                             case .keypad:
                                 EmptyView()
+
+                            case .about:
+                                AboutView()
                             }
                         }
                         .id(tab)
@@ -541,6 +544,7 @@ struct ContentView: View {
             navItem("Queue", icon: "list.bullet", for: .queue)
             navItem("Keypad", icon: "circle.grid.3x3.fill", for: .keypad)
             navItem("Lyrics", icon: "text.quote", for: .lyrics)
+            navItem("About", icon: "info.circle", for: .about)
         }
         .padding(.horizontal, 5)
         .padding(.vertical, 5)
