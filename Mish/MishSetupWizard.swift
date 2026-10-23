@@ -28,7 +28,7 @@ enum MishBaseTheme: String, CaseIterable, Identifiable {
 }
 
 enum MishLayoutStyle: String, CaseIterable, Identifiable {
-    case classic, vinyl, minimal, immersive
+    case classic, vinyl, minimal
 
     var id: String { rawValue }
 
@@ -849,6 +849,7 @@ private struct LayoutPreview: View {
             }
         }
     }
+}
 
 // MARK: Step 4 - save file animation
 
