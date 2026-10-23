@@ -718,14 +718,6 @@ struct NowPlayingView: View {
                         case .minimal:
                             minimalHeader
     
-                        case .immersive:
-                            if !specialMode {
-                                immersiveArtwork
-                            }
-    
-                            trackInfo
-                        }
-    
                         seekBar
                         controls
                         lyricsPreview
@@ -874,55 +866,6 @@ struct NowPlayingView: View {
             .buttonStyle(.plain)
         }
         .padding(.vertical, 8)
-    }
-    
-    private var immersiveArtwork: some View {
-        ZStack(alignment: .bottomLeading) {
-            Group {
-                if let image = player.currentTrack?.artwork {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    LinearGradient(
-                        colors: [
-                            Color.mishGreen.opacity(0.7),
-                            Color.black
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .overlay {
-                        Text("mish")
-                            .font(.custom("delagothicone-regular", size: 54))
-                            .foregroundStyle(.white.opacity(0.8))
-                    }
-                }
-            }
-            .frame(height: 360)
-            .frame(maxWidth: .infinity)
-            .clipped()
-    
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.85)],
-                startPoint: .center,
-                endPoint: .bottom
-            )
-    
-            VStack(alignment: .leading, spacing: 5) {
-                Text(player.currentTrack?.title ?? "Nothing playing")
-                    .font(.system(size: 25, weight: .bold))
-                    .lineLimit(2)
-    
-                Text(subtitle)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.white.opacity(0.75))
-                    .lineLimit(1)
-            }
-            .padding(18)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 22))
-        .shadow(color: .black.opacity(0.3), radius: 16, y: 8)
     }
     
 
