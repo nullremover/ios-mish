@@ -251,6 +251,7 @@ struct ContentView: View {
     private var albumBlurRadius = 55.0
     @StateObject private var lyricsModel = LyricsModel()
     @EnvironmentObject private var settings: MishSettings
+    @State private var showAppearanceSettings = false
     
 
 @State private var showBackgroundSettings = false
@@ -462,6 +463,10 @@ struct ContentView: View {
         .sheet(isPresented: $showBackgroundSettings) {
             BackgroundSettingsView()
         }
+        .sheet(isPresented: $showAppearanceSettings) {
+            AppearanceSettingsView()
+                .environmentObject(settings)
+        }
         .task(id: player.currentTrack?.url) {
             guard let track = player.currentTrack else {
                 lyricsModel.clear()
@@ -489,12 +494,9 @@ struct ContentView: View {
                     showImporter = true
                 }
                 Button {
-                    showBackgroundSettings = true
+                    showAppearanceSettings = true
                 } label: {
-                    Label(
-                        "Background Settings",
-                        systemImage: "slider.horizontal.3"
-                    )
+                    Label("Appearance", systemImage: "paintpalette")
                 }
                 Divider()
 
