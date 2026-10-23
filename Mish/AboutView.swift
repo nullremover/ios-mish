@@ -119,6 +119,11 @@ struct AboutView: View {
                                     title: "first windows tester/everything tester: professorevilscores/@reemran",
                                     subtitle: "\"THANK YOU FOR TRYING THE MORE BAREBONES VERSIONNN lol(but seriously ur the coolest)\""
                                 )
+                                
+                                SupporterItem(
+                                    title: "AMAZING MUSIC BALL KNOWER: parkerscores/@fish_monger_2021",
+                                    subtitle: "\"HE'S SO JOLLY(I LOVE YOU PARKER) THANK YOUUUUU\""
+                                )
                             }
 
                             Text("to anyone who wants credits text me :P")
