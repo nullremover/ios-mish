@@ -38,7 +38,7 @@ jobs:
         run: |
           swift package resolve
           swift package --disable-sandbox \
-            --swift-sdk swift-6.4.1-RELEASE_wasm \
+            --swift-sdk swift-6.4.0-RELEASE_wasm \
             js build
 
 
