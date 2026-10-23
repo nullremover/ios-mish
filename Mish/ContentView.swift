@@ -205,7 +205,7 @@ private struct AlbumArtBackground: View {
                     .overlay(.ultraThinMaterial)
                 }
 
-                if let artwork {
+                if theme != .amoled, let artwork {
                     Image(uiImage: artwork)
                         .resizable()
                         .scaledToFill()
@@ -241,7 +241,8 @@ struct ContentView: View {
     @State private var tab: MishTab = .playing
     @State private var showImporter = false
     @State private var importFolder = true
-    @State private var chaos = false
+    @AppStorage("mishSpecialArtistModesEnabled")
+    private var specialArtistModesEnabled = true
     @State private var showPlaylists = false
     @State private var gabrielUnlocked = false
     @AppStorage("mishAlbumBlurEnabled")
@@ -254,7 +255,9 @@ struct ContentView: View {
 
 @State private var showBackgroundSettings = false
 
-    private var specialMode: Bool { player.isUnderscoresMode }
+    private var specialMode: Bool {
+    specialArtistModesEnabled && player.isUnderscoresMode
+}
 
     private static var underscoresBackground: UIImage? {
         guard let url = Bundle.main.url(
@@ -278,7 +281,8 @@ struct ContentView: View {
 }
 
     private var isBeautySleepTrack: Bool {
-    guard let track = player.currentTrack else {
+    guard specialArtistModesEnabled,
+          let track = player.currentTrack else {
         return false
     }
 
@@ -325,7 +329,7 @@ struct ContentView: View {
                 Color.white.opacity(0.16)
                     .ignoresSafeArea()
         
-            } else if player.isJaneRemoverMode {
+            } else if specialArtistModesEnabled && player.isJaneRemoverMode {
                 GeometryReader { geometry in
                     if let image = Self.janeRemoverBackground {
                         Image(uiImage: image)
@@ -518,22 +522,18 @@ struct ContentView: View {
             Spacer()
 
             Button {
-                chaos.toggle()
+                showBackgroundSettings = true
             } label: {
-                Text(chaos ? "Portal" : "CALM")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(
-                        specialMode
-                            ? Color.black
-                            : (chaos ? .purple : .cyan)
-                    )
-                    .frame(width: 64, height: 44)
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 18, weight: .medium))
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
-        }
-        .foregroundColor(specialMode ? .black : .white)
-        .padding(.horizontal, 12)
-    }
+            .accessibilityLabel("Background Settings")
+                    }
+                    .foregroundColor(specialMode ? .black : .white)
+                    .padding(.horizontal, 12)
+                }
 
     // MARK: Bottom nav
     
@@ -682,49 +682,67 @@ struct NowPlayingView: View {
     private var progress: Double {
         player.duration > 0 ? min(max(displayTime / player.duration, 0), 1) : 0
     }
+    
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: settings.layout == .minimal ? 12 : 18) {
-                switch settings.layout {
-                case .classic:
-                    if !specialMode {
-                        artwork
+        GeometryReader { geometry in
+            let panelWidth: CGFloat = geometry.size.width < 380 ? 34 : 46
+    
+            HStack(spacing: 10) {
+                MishVisualizerView(spectrum: player.spectrum)
+                    .frame(width: panelWidth)
+                    .frame(maxHeight: .infinity)
+                    .padding(.vertical, 8)
+                    .accessibilityLabel("Music visualizer")
+    
+                ScrollView(showsIndicators: false) {
+                    VStack(
+                        spacing: settings.layout == .minimal ? 12 : 18
+                    ) {
+                        switch settings.layout {
+                        case .classic:
+                            if !specialMode {
+                                artwork
+                            }
+    
+                            trackInfo
+    
+                        case .vinyl:
+                            if !specialMode {
+                                vinylArtwork
+                            }
+    
+                            trackInfo
+    
+                        case .minimal:
+                            minimalHeader
+    
+                        case .immersive:
+                            if !specialMode {
+                                immersiveArtwork
+                            }
+    
+                            trackInfo
+                        }
+    
+                        seekBar
+                        controls
+                        lyricsPreview
+                        upNext
                     }
-    
-                    trackInfo
-    
-                case .vinyl:
-                    if !specialMode {
-                        vinylArtwork
-                    }
-    
-                    trackInfo
-    
-                case .minimal:
-                    minimalHeader
-    
-                case .immersive:
-                    if !specialMode {
-                        immersiveArtwork
-                    }
-    
-                    trackInfo
+                    .padding(.horizontal, 12)
+                    .padding(.top, 6)
+                    .padding(.bottom, 12)
                 }
-    
-                seekBar
-                controls
-                lyricsPreview
-                upNext
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .padding(.horizontal, settings.layout == .minimal ? 14 : 20)
-            .padding(.top, 6)
-            .padding(.bottom, 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .foregroundStyle(mainText)
         .animation(.easeInOut(duration: 0.3), value: specialMode)
         .animation(.easeInOut(duration: 0.3), value: settings.layout)
         .animation(.easeInOut(duration: 0.3), value: settings.baseTheme)
     }
+
     
     private var vinylDisc: some View {
         ZStack {
@@ -1350,6 +1368,9 @@ private struct BackgroundSettingsView: View {
 
     @AppStorage("mishAlbumBlurRadius")
     private var blurRadius = 55.0
+    
+    @AppStorage("mishSpecialArtistModesEnabled")
+    private var specialArtistModesEnabled = true
 
     var body: some View {
         NavContainer {
@@ -1382,7 +1403,20 @@ private struct BackgroundSettingsView: View {
                         .foregroundStyle(.secondary)
                     }
                 }
-
+                
+                Section("Visual Effects") {
+                    Toggle(
+                        "Artist-specific backgrounds",
+                        isOn: $specialArtistModesEnabled
+                    )
+                
+                    Text(
+                        "Controls the special Underscores and Jane Remover backgrounds."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                
                 Section {
                     Button("Reset to Default") {
                         blurEnabled = true
