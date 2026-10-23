@@ -1,11 +1,44 @@
 
 import Foundation
 
-/// Converts audio samples into frequency magnitudes for Mish's visualizer.
-/// Input samples should be mono Float audio, ideally normalized to -1...1.
+/// Converts mono PCM samples into frequency magnitudes.
 enum MishSpectrumAnalyzer {
     static let fftSize = 2048
     static let bandCount = 512
+
+    private static let window: [Float] = (0..<fftSize).map { i in
+        0.5 - 0.5 * cos(
+            2 * Float.pi * Float(i) / Float(fftSize - 1)
+        )
+    }
+
+    private static let bandRanges: [(lower: Int, upper: Int)] = {
+        let sampleRate = 44_100.0
+        let nyquist = sampleRate / 2
+        let minHz = 20.0
+        let maxHz = min(16_000.0, nyquist)
+        let logRange = log(maxHz / minHz)
+
+        return (0..<bandCount).map { band in
+            let lowerHz = minHz * exp(
+                logRange * Double(band) / Double(bandCount)
+            )
+            let upperHz = minHz * exp(
+                logRange * Double(band + 1) / Double(bandCount)
+            )
+
+            let lower = max(
+                1,
+                Int(lowerHz * Double(fftSize) / sampleRate)
+            )
+            let upper = min(
+                fftSize / 2,
+                max(lower, Int(upperHz * Double(fftSize) / sampleRate))
+            )
+
+            return (lower, upper)
+        }
+    }()
 
     static func analyze(
         samples: [Float],
@@ -19,16 +52,11 @@ enum MishSpectrumAnalyzer {
         var real = [Float](repeating: 0, count: n)
         var imag = [Float](repeating: 0, count: n)
 
-        // Keep the newest samples and pad short buffers with silence.
         let count = min(samples.count, n)
         let offset = samples.count - count
 
         for i in 0..<count {
-            let window = 0.5 - 0.5 * cos(
-                2 * Float.pi * Float(i) / Float(n - 1)
-            )
-
-            real[i] = samples[offset + i] * window
+            real[i] = samples[offset + i] * window[i]
         }
 
         // Bit-reversal permutation.
@@ -50,7 +78,7 @@ enum MishSpectrumAnalyzer {
             }
         }
 
-        // Iterative radix-2 Cooley-Tukey FFT.
+        // Iterative radix-2 FFT.
         var length = 2
 
         while length <= n {
@@ -82,36 +110,46 @@ enum MishSpectrumAnalyzer {
             length *= 2
         }
 
-        // Map the FFT into logarithmically spaced frequency bands.
+        // Convert FFT magnitudes into display bands.
         let nyquist = sampleRate / 2
-        let minHz = 20.0
         let maxHz = min(16_000.0, nyquist)
+        let logRange = maxHz > 20 ? log(maxHz / 20) : 0
+
+        guard logRange > 0 else {
+            return Array(repeating: 0, count: bandCount)
+        }
+
         var bands = [Float](repeating: 0, count: bandCount)
 
-        guard maxHz > minHz else { return bands }
-
-        let logRange = log(maxHz / minHz)
-
         for band in 0..<bandCount {
-            let lowerHz = minHz * exp(
-                logRange * Double(band) / Double(bandCount)
-            )
-            let upperHz = minHz * exp(
-                logRange * Double(band + 1) / Double(bandCount)
-            )
+            // Recalculate bin boundaries only for nonstandard sample rates.
+            let range: (lower: Int, upper: Int)
 
-            let lowerBin = max(
-                1,
-                Int(lowerHz * Double(n) / sampleRate)
-            )
-            let upperBin = min(
-                n / 2,
-                max(lowerBin, Int(upperHz * Double(n) / sampleRate))
-            )
+            if abs(sampleRate - 44_100.0) < 1 {
+                range = bandRanges[band]
+            } else {
+                let lowerHz = 20.0 * exp(
+                    logRange * Double(band) / Double(bandCount)
+                )
+                let upperHz = 20.0 * exp(
+                    logRange * Double(band + 1) / Double(bandCount)
+                )
+
+                let lower = max(
+                    1,
+                    Int(lowerHz * Double(n) / sampleRate)
+                )
+                let upper = min(
+                    n / 2,
+                    max(lower, Int(upperHz * Double(n) / sampleRate))
+                )
+
+                range = (lower, upper)
+            }
 
             var peak: Float = 0
 
-            for bin in lowerBin...upperBin {
+            for bin in range.lower...range.upper {
                 let magnitude = sqrt(
                     real[bin] * real[bin] +
                     imag[bin] * imag[bin]
@@ -120,7 +158,6 @@ enum MishSpectrumAnalyzer {
                 peak = max(peak, magnitude)
             }
 
-            // Gentle logarithmic scaling for visual display.
             bands[band] = min(
                 1,
                 log1p(peak * 80) / log(81.0)
