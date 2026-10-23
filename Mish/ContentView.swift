@@ -722,6 +722,7 @@ struct NowPlayingView: View {
                         controls
                         lyricsPreview
                         upNext
+                        }
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 6)
