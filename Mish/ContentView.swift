@@ -717,12 +717,11 @@ struct NowPlayingView: View {
     
                         case .minimal:
                             minimalHeader
-    
+                        }
                         seekBar
                         controls
                         lyricsPreview
                         upNext
-                        }
                     }
                     .padding(.horizontal, 12)
                     .padding(.top, 6)
