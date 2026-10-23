@@ -39,7 +39,7 @@ jobs:
           swift package resolve
           swift package --disable-sandbox \
             --swift-sdk swift-6.4.0-RELEASE_wasm \
-            js build
+            js
 
 
       - name: Inspect build output
