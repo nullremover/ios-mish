@@ -37,7 +37,6 @@ enum MishLayoutStyle: String, CaseIterable, Identifiable {
         case .classic:   return "Classic"
         case .vinyl:     return "Vinyl"
         case .minimal:   return "Minimal"
-        case .immersive: return "Immersive"
         }
     }
 }
@@ -848,30 +847,8 @@ private struct LayoutPreview: View {
 
                 Spacer()
             }
-
-        case .immersive:
-            ZStack(alignment: .bottomLeading) {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.mishGreen.opacity(0.8),
-                                Color.mishGreen.opacity(0.15)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-
-                VStack(alignment: .leading, spacing: 5) {
-                    bar(54, 0.8)
-                    bar(34, 0.5)
-                }
-                .padding(8)
-            }
         }
     }
-}
 
 // MARK: Step 4 - save file animation
 
