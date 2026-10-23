@@ -23,19 +23,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install SwiftWasm
-        id: swiftwasm
-        uses: swiftwasm/setup-swiftwasm@v2
+      
+      - name: Install Swift 6.4.1
+        uses: swift-actions/setup-swift@v3
         with:
-          target: wasm32-unknown-wasip1
+          swift-version: "6.4.1"
+
+      - name: Install matching WebAssembly SDK
+        run: |
+          swift sdk install \
+            https://download.swift.org/swift-6.4.1-release/wasm-sdk/swift-6.4.1-RELEASE/swift-6.4.1-RELEASE_wasm.artifactbundle.tar.gz \
+            --checksum 783e6128d174d9f975b4eda68be02a5960681b723ef372e6876a7c2543a365d8
+
+      - name: Verify WebAssembly SDK
+        run: swift sdk list
 
       - name: Build browser app
         working-directory: Web
         run: |
           swift package resolve
           swift package --disable-sandbox \
-            --swift-sdk "${{ steps.swiftwasm.outputs.swift-sdk-id }}" \
+            --swift-sdk swift-6.4.1-RELEASE_wasm \
             js build
+
 
       - name: Inspect build output
         run: |
