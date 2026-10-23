@@ -22,13 +22,13 @@ struct SupporterItem: View {
 }
 
 struct AboutView: View {
-    // Hardcoded version and build number
+    // Hardcoded version and build number as requested
     private let version = "0.2.8alpha"
     private let buildNumber = "145"
 
     @State private var taps = 0
     @State private var secret = false
-    @State private var confettiEmitter = CAEmitterLayer()
+    @Environment(\.dismiss) var dismiss
 
     var body: some View {
         ZStack {
@@ -37,9 +37,23 @@ struct AboutView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
-                    Spacer().frame(height: 40)
+                    // Close button
+                    HStack {
+                        Spacer()
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.bottom, 10)
 
-                    // Mish Logo with Tap Secret
+                    Spacer().frame(height: 20)
+
+                    // Mish Logo with Tap Secret (7 taps)
                     Text("mish")
                         .font(.custom("delagothicone-regular", size: 72))
                         .foregroundColor(.mishGreen)
@@ -169,7 +183,6 @@ struct ConfettiView: UIViewRepresentable {
                 cell.scaleRange = 0.05
                 cell.color = color.cgColor
 
-                // Create white square particle image programmatically
                 let size = CGSize(width: 16, height: 16)
                 UIGraphicsBeginImageContext(size)
                 if let context = UIGraphicsGetCurrentContext() {
