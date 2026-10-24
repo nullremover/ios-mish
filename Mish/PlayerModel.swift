@@ -142,10 +142,21 @@ final class PlayerModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     }
 
     private func configureAudioSession() {
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .default)
-        try? session.setActive(true)
+    let session = AVAudioSession.sharedInstance()
+    do {
+        // By adding options, you tell iOS to mix your music with Roblox 
+        // and force the output cleanly through the iPhone's bottom speakers.
+        try session.setCategory(
+            .playback, 
+            mode: .default, 
+            options: [.mixWithOthers, .defaultToSpeaker]
+        )
+        try session.setActive(true)
+        print("Mish Audio Session: Configured successfully with background mixing.")
+    } catch {
+        print("Mish Audio Session Error: Failed to set category or activate: \(error)")
     }
+}
 
     /// Lock screen, Control Center, headphone buttons, CarPlay...
     private func configureRemoteCommands() {
