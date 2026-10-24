@@ -256,6 +256,24 @@ struct ContentView: View {
 
 @State private var showBackgroundSettings = false
 
+    private var isDoItTrack: Bool {
+        guard specialArtistModesEnabled,
+              let track = player.currentTrack else {
+            return false
+        }
+
+        return track.title.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ).localizedCaseInsensitiveCompare("Do It") == .orderedSame
+        && track.artist.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ).localizedCaseInsensitiveCompare("underscores") == .orderedSame
+    }
+
+    private var specialMode: Bool {
+        specialArtistModesEnabled && player.isUnderscoresMode
+    }
+
     private var specialMode: Bool {
     specialArtistModesEnabled && player.isUnderscoresMode
 }
@@ -310,6 +328,14 @@ struct ContentView: View {
                 Color.black.opacity(0.20)
                     .ignoresSafeArea()
         
+            } else if isDoItTrack {
+                AlbumArtBackground(
+                    artwork: player.currentTrack?.artwork,
+                    blurRadius: albumBlurRadius,
+                    blurEnabled: albumBlurEnabled,
+                    theme: settings.baseTheme
+                )
+                .id(player.currentTrack?.url)
             } else if specialMode {
                 GeometryReader { geometry in
                     if let image = Self.underscoresBackground {
@@ -676,6 +702,21 @@ struct NowPlayingView: View {
     private let waveformBarCount = 72
 
     private var specialMode: Bool { player.isUnderscoresMode }
+        @AppStorage("mishSpecialArtistModesEnabled")
+    private var specialArtistModesEnabled = true
+    private var isDoItTrack: Bool {
+        guard specialArtistModesEnabled,
+              let track = player.currentTrack else {
+            return false
+        }
+
+        return track.title.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ).localizedCaseInsensitiveCompare("Do It") == .orderedSame
+        && track.artist.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ).localizedCaseInsensitiveCompare("underscores") == .orderedSame
+    }
     private var mainText: Color { specialMode ? .black : .white }
     private var secondaryText: Color { specialMode ? Color.black.opacity(0.62) : Color(hex: 0xa7a8b3) }
     private var progressTrack: Color { specialMode ? Color.black.opacity(0.22) : Color(hex: 0x454650) }
@@ -702,10 +743,10 @@ struct NowPlayingView: View {
                     ) {
                         switch settings.layout {
                         case .classic:
-                            if !specialMode {
+                            if isDoItTrack || !specialMode {
                                 artwork
                             }
-    
+                            
                             trackInfo
     
                         case .vinyl:
@@ -875,21 +916,46 @@ struct NowPlayingView: View {
             .frame(maxHeight: 330)
             .overlay(
                 Group {
-                    if let image = player.currentTrack?.artwork {
-                        Image(uiImage: image).resizable().scaledToFill()
+                    if isDoItTrack {
+                        DoItVideoArtwork(
+                            songTime: player.currentTime,
+                            isPlaying: player.isPlaying
+                        )
+                    } else if let image = player.currentTrack?.artwork {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
                     } else {
                         ZStack {
                             LinearGradient(
-                                colors: [Color(hex: 0x38393D), Color(hex: 0x242528), Color(hex: 0x303135)],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
+                                colors: [
+                                    Color(hex: 0x38393D),
+                                    Color(hex: 0x242528),
+                                    Color(hex: 0x303135)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
                             )
-                            Circle().stroke(Color.white.opacity(0.07), lineWidth: 1).padding(40)
+
+                            Circle()
+                                .stroke(
+                                    Color.white.opacity(0.07),
+                                    lineWidth: 1
+                                )
+                                .padding(40)
+
                             Text("mish")
-                                .font(.custom("delagothicone-regular", size: 42))
-                                .foregroundStyle(Color(hex: 0xD4D4D8))
+                                .font(
+                                    .custom(
+                                        "delagothicone-regular",
+                                        size: 42
+                                    )
+                                )
+                                .foregroundStyle(
+                                    Color(hex: 0xD4D4D8)
+                                )
                         }
                     }
-                }
             )
             .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .overlay {
@@ -1375,6 +1441,110 @@ private struct BackgroundSettingsView: View {
         .preferredColorScheme(.dark)
     }
 }
+
+
+private struct DoItVideoArtwork: UIViewRepresentable {
+    let songTime: TimeInterval
+    let isPlaying: Bool
+
+    final class VideoView: UIView {
+        override class var layerClass: AnyClass {
+            AVPlayerLayer.self
+        }
+
+        var playerLayer: AVPlayerLayer {
+            layer as! AVPlayerLayer
+        }
+    }
+
+    final class Coordinator {
+        var player: AVPlayer?
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> VideoView {
+        let view = VideoView()
+        view.backgroundColor = .black
+        view.playerLayer.videoGravity = .resizeAspectFill
+
+        guard let url = Bundle.main.url(
+            forResource: "doItVideo",
+            withExtension: "mp4"
+        ) else {
+            print("Mish: doItVideo.mp4 not found in app bundle")
+            return view
+        }
+
+        let player = AVPlayer(url: url)
+        player.isMuted = true
+        player.actionAtItemEnd = .pause
+
+        context.coordinator.player = player
+        view.playerLayer.player = player
+
+        return view
+    }
+
+    func updateUIView(
+        _ uiView: VideoView,
+        context: Context
+    ) {
+        guard let player = context.coordinator.player else {
+            return
+        }
+
+        player.isMuted = true
+
+        let videoTime = player.currentTime().seconds
+        let targetTime = max(
+            0,
+            songTime.isFinite ? songTime : 0
+        )
+
+        // Correct drift without seeking on every tiny time update.
+        if !videoTime.isFinite ||
+            abs(videoTime - targetTime) > 0.75 {
+
+            let target = CMTime(
+                seconds: targetTime,
+                preferredTimescale: 600
+            )
+
+            player.seek(
+                to: target,
+                toleranceBefore: .zero,
+                toleranceAfter: .zero
+            ) { finished in
+                guard finished else { return }
+
+                if isPlaying {
+                    player.play()
+                } else {
+                    player.pause()
+                }
+            }
+        } else if isPlaying {
+            if player.rate == 0 {
+                player.play()
+            }
+        } else {
+            player.pause()
+        }
+    }
+
+    static func dismantleUIView(
+        _ uiView: VideoView,
+        coordinator: Coordinator
+    ) {
+        coordinator.player?.pause()
+        uiView.playerLayer.player = nil
+        coordinator.player = nil
+    }
+}
+
 
 
 private struct BeautySleepVideoBackground: UIViewRepresentable {
