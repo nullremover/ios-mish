@@ -273,7 +273,6 @@ struct ContentView: View {
     private var specialMode: Bool {
         specialArtistModesEnabled && player.isUnderscoresMode
     }
-}
 
     private static var underscoresBackground: UIImage? {
         guard let url = Bundle.main.url(
