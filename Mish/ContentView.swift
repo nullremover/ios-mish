@@ -273,9 +273,6 @@ struct ContentView: View {
     private var specialMode: Bool {
         specialArtistModesEnabled && player.isUnderscoresMode
     }
-
-    private var specialMode: Bool {
-    specialArtistModesEnabled && player.isUnderscoresMode
 }
 
     private static var underscoresBackground: UIImage? {
@@ -910,11 +907,12 @@ struct NowPlayingView: View {
     }
     
 
+    
     private var artwork: some View {
         Color.clear
             .aspectRatio(1, contentMode: .fit)
             .frame(maxHeight: 330)
-            .overlay(
+            .overlay {
                 Group {
                     if isDoItTrack {
                         DoItVideoArtwork(
@@ -951,45 +949,62 @@ struct NowPlayingView: View {
                                         size: 42
                                     )
                                 )
-                                .foregroundStyle(
-                                    Color(hex: 0xD4D4D8)
-                                )
+                                .foregroundStyle(Color(hex: 0xD4D4D8))
                         }
                     }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+            }
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: 19,
+                    style: .continuous
+                )
             )
-            .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 19, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [
-                                .white.opacity(0.65),
-                                .white.opacity(0.08),
-                                .white.opacity(0.22)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-                    .allowsHitTesting(false)
+                RoundedRectangle(
+                    cornerRadius: 19,
+                    style: .continuous
+                )
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.65),
+                            .white.opacity(0.08),
+                            .white.opacity(0.22)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+                .allowsHitTesting(false)
             }
             .overlay(alignment: .top) {
-                RoundedRectangle(cornerRadius: 19, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                .white.opacity(0.14),
-                                .clear
-                            ],
-                            startPoint: .top,
-                            endPoint: .center
-                        )
+                RoundedRectangle(
+                    cornerRadius: 19,
+                    style: .continuous
+                )
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.14),
+                            .clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .center
                     )
-                    .allowsHitTesting(false)
+                )
+                .allowsHitTesting(false)
             }
-            .shadow(color: Color.black.opacity(0.4), radius: 20, y: 18)
+            .shadow(
+                color: Color.black.opacity(0.4),
+                radius: 20,
+                y: 18
+            )
     }
+
 
     private var trackInfo: some View {
         HStack(alignment: .center, spacing: 8) {
