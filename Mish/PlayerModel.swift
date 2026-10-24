@@ -463,7 +463,12 @@ func addToPlaylist(id: UUID, track: Track) {
             if let art = m.artwork { tracks[i].artwork = art }
             if m.url == currentURL { touchedCurrent = true }
         }
-        if touchedCurrent { updateNowPlaying() }
+        if touchedCurrent {
+            updateNowPlaying()
+            // Metadata may finish loading just after playback begins. Publish the
+            // corrected title/artist once it is available, but never on pause/seek.
+            if isPlaying { publishLastFMNowPlaying() }
+        }
     }
 
     // MARK: - Order (shuffle)
@@ -570,6 +575,7 @@ func addToPlaylist(id: UUID, track: Track) {
     
             startTimer()
             updateNowPlaying()
+            publishLastFMNowPlaying()
         } catch {
             print(
                 "Could not play \(tracks[index].url.lastPathComponent): \(error)"
@@ -698,6 +704,23 @@ func addToPlaylist(id: UUID, track: Track) {
             } else {
                 self.next()
             }
+        }
+    }
+
+    // MARK: - Last.fm Now Playing
+    private func publishLastFMNowPlaying() {
+        guard isPlaying, let track = currentTrack else { return }
+        let title = track.title
+        let artist = track.artist
+        let album = track.album
+        let trackDuration = duration
+        Task {
+            await LastFMClient.updateNowPlaying(
+                title: title,
+                artist: artist,
+                album: album,
+                duration: trackDuration
+            )
         }
     }
 

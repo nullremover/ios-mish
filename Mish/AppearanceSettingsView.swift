@@ -44,6 +44,16 @@ struct AppearanceSettingsView: View {
                 } footer: {
                     Text("Allow album artwork to influence the player's accent styling.")
                 }
+
+                Section {
+                    NavigationLink {
+                        LastFMSettingsView()
+                    } label: {
+                        Label("Last.fm / Roblox Now Playing", systemImage: "waveform")
+                    }
+                } footer: {
+                    Text("Connect Last.fm so experiences that read your Last.fm Now Playing status can see tracks from Mish.")
+                }
             }
             .navigationTitle("Appearance")
             .navigationBarTitleDisplayMode(.inline)
